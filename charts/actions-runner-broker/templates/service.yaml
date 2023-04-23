@@ -1,0 +1,18 @@
+{{- define "actions-runner-broker.dispatcher-service" -}}
+{{ .Release.Name }}-dispatcher-service
+{{- end -}}
+
+{{- if or .Values.ingress.enabled .Values.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "actions-runner-broker.dispatcher-service" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "actions-runner-broker.selectors" . | nindent 4 }}
+  ports:
+  - port: {{ .Values.service.exposedPort }}
+    targetPort: {{ .Values.service.exposedPort }}
+{{- end -}}

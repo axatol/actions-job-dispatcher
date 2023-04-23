@@ -1,0 +1,36 @@
+{{- define "actions-runner-broker.auth-secret" -}}
+{{ .Release.Name }}-auth-secret
+{{- end -}}
+
+{{- if .Values.github.authSecret.create -}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "actions-runner-broker.auth-secret" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
+type: Opaque
+data:
+  token: {{ get .Values.github.authSecret "token" | toString | b64enc }}
+  appId: {{ get .Values.github.authSecret "appId" | toString| b64enc }}
+  appInstallationId: {{ get .Values.github.authSecret "appInstallationId" | toString| b64enc }}
+  appPrivateKey: {{ get .Values.github.authSecret "appPrivateKey" | b64enc }}
+{{- end -}}
+
+{{- define "actions-runner-broker.config" -}}
+{{ .Release.Name }}-config
+{{- end -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "actions-runner-broker.config" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    log_level: {{ .Values.dispatcher.logLevel }}
+    log_format: {{ .Values.dispatcher.logFormat }}
+    sync_interval: {{ .Values.dispatcher.syncInterval }}
+    runners: {{ .Values.dispatcher.runners }}

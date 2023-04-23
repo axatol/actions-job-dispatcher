@@ -1,0 +1,16 @@
+apiVersion: v2
+name: actions-runner-broker
+description: Job broker for github actions runners
+type: application
+
+version: 0.0.1
+appVersion: 0.0.1
+
+home: https://github.com/axatol/actions-runner-broker
+
+sources:
+  - https://github.com/axatol/actions-runner-broker
+
+maintainers:
+  - name: axatol
+    url: https://github.com/axatol

@@ -1,0 +1,31 @@
+image: public.ecr.aws/axatol/actions-runner-broker:latest
+
+github:
+  authSecret:
+    create: false
+    # appId:
+    # appInstallationId:
+    # appPrivateKey:
+
+dispatcher:
+  logFormat: json
+  logLevel: info
+  syncInterval: 30
+  runners: []
+  # configMapName:
+  # dataVolume:
+  #   ephemeral: {}
+
+rbac:
+  create: false
+  # serviceAccountName:
+
+service:
+  enabled: false
+  exposedPort: 8000
+
+ingress:
+  enabled: false
+  annotations: {}
+  hosts: []
+  tls: {}

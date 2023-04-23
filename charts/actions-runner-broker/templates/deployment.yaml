@@ -1,0 +1,53 @@
+{{- define "actions-runner-broker.dispatcher" -}}
+{{ .Release.Name }}-dispatcher
+{{- end -}}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "actions-runner-broker.dispatcher" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{- include "actions-runner-broker.selectors" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "actions-runner-broker.selectors" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ get .Values.rbac "serviceAccountName" | default (include "actions-runner-broker.dispatcher" .) }}
+      containers:
+        - name: dispatcher
+          image: {{ .Values.image }}
+          serviceAccount: {{ include "actions-runner-broker.dispatcher" . }}
+          args:
+            - -config-file
+            - /config/config.yaml
+            - -log-format
+            - {{ .Values.dispatcher.logFormat }}
+            - -log-level
+            - {{ .Values.dispatcher.logLevel }}
+          {{- if .Values.github.authSecret.create }}
+          envFrom:
+            - secretRef:
+                name: {{ include "actions-runner-broker.auth-secret" . }}
+          {{- end }}
+          {{- if or .Values.service.enabled .Values.ingress.enabled }}
+          ports:
+            - containerPort: {{ .Values.service.exposedPort }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config/config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: config
+          configMap: {{ get .Values.dispatcher "configMapName" | print .Release.Name "-dispatcher-config" }}
+
+        - name: data
+          {{- if get .Values.dispatcher "dataVolume" }}
+          {{- get .Values.dispatcher "dataVolume" | toYaml | nindent 10 }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
