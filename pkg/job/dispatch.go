@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/axatol/actions-runner-broker/pkg/config"
+	"github.com/axatol/actions-runner-broker/pkg/gh"
 	"github.com/google/go-github/v51/github"
 	"github.com/rs/zerolog/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,9 +14,17 @@ import (
 )
 
 func Dispatch(ctx context.Context, client *kubernetes.Clientset, runner config.RunnerConfig) error {
-	job := NewRunnerJob(runner).Build()
+	gh := gh.NewClient(ctx, runner.RunnerLabel)
+	token, err := gh.CreateRegistrationToken(ctx)
+	if err != nil {
+		return err
+	}
 
-	response, err := client.BatchV1().Jobs(job.ObjectMeta.Namespace).Create(ctx, &job, metav1.CreateOptions{})
+	job := NewRunnerJob(runner)
+	job.env.MaybeAdd("RUNNER_TOKEN", token.Token)
+	tmpl := job.Build()
+
+	response, err := client.BatchV1().Jobs(tmpl.Namespace).Create(ctx, &tmpl, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -25,7 +34,6 @@ func Dispatch(ctx context.Context, client *kubernetes.Clientset, runner config.R
 		Msg("dispatched job")
 
 	return nil
-
 }
 
 func DispatchByEvent(ctx context.Context, client *kubernetes.Clientset, event github.WorkflowJobEvent) error {

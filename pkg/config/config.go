@@ -12,6 +12,7 @@ func LoadConfig() {
 	registerGlobalFlags()
 	registerKubernetesFlags()
 	registerReconcilerFlags()
+	registerGithubFlags()
 
 	flag.Parse()
 	loadConfigFromFile()
@@ -48,32 +49,11 @@ func loadConfigFromFile() {
 	}
 
 	var cfg struct {
-		LogLevel  *string        `yaml:"log_level"`
-		LogFormat *string        `yaml:"log_format"`
-		Interval  *string        `yaml:"interval"`
-		Runners   []RunnerConfig `yaml:"runners"`
+		Runners []RunnerConfig `yaml:"runners"`
 	}
 
 	if err := yaml.Unmarshal(raw, &cfg); err != nil {
 		panic(fmt.Errorf("could not parse config file: %s", err))
-	}
-
-	if !LogLevel.set {
-		if err := LogLevel.MaybeSet(cfg.LogLevel); err != nil {
-			panic(fmt.Errorf("error loading log level: %s", err))
-		}
-	}
-
-	if !LogFormat.set {
-		if err := LogFormat.MaybeSet(cfg.LogFormat); err != nil {
-			panic(fmt.Errorf("error loading log format: %s", err))
-		}
-	}
-
-	if !Interval.set {
-		if err := Interval.MaybeSet(cfg.Interval); err != nil {
-			panic(fmt.Errorf("error loading interval: %s", err))
-		}
 	}
 
 	Runners = cfg.Runners

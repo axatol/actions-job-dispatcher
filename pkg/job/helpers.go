@@ -33,12 +33,16 @@ func (m PrefixMap) Add(key string, value any) {
 
 type EnvMap map[string]string
 
+func (m EnvMap) Add(key string, value string) {
+	m[key] = value
+}
+
 func (m EnvMap) MaybeAdd(key string, value *string) {
 	if value == nil {
 		return
 	}
 
-	m[key] = *value
+	m.Add(key, *value)
 }
 
 func (m EnvMap) EnvVarList() []corev1.EnvVar {

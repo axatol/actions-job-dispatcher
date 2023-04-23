@@ -9,8 +9,8 @@ import (
 
 var (
 	ConfigFile string
-	LogLevel   LogLevelValue
-	LogFormat  LogFormatValue
+	LogLevel   = StringFlagValue{defaultValue: zerolog.InfoLevel.String(), validate: validateLogLevel}
+	LogFormat  = StringFlagValue{defaultValue: LogFormatJSON, validate: validateLogFormat}
 )
 
 func registerGlobalFlags() {
@@ -24,65 +24,15 @@ const (
 	LogFormatText = "text"
 )
 
-type LogFormatValue struct {
-	set   bool
-	value string
+func validateLogLevel(s string) error {
+	_, err := zerolog.ParseLevel(s)
+	return err
 }
 
-func (v LogFormatValue) DefaultString() string {
-	return LogFormatJSON
-}
-
-func (v LogFormatValue) String() string {
-	return v.value
-}
-
-func (v *LogFormatValue) MaybeSet(value *string) error {
-	if value != nil {
-		return v.Set(*value)
-	}
-
-	return v.Set(v.DefaultString())
-}
-
-func (v *LogFormatValue) Set(value string) error {
-	if value != LogFormatJSON && value != LogFormatText {
+func validateLogFormat(s string) error {
+	if s != LogFormatJSON && s != LogFormatText {
 		return fmt.Errorf(`value must be one of: "text", "json"`)
 	}
 
-	v.set = true
-	v.value = value
-	return nil
-}
-
-type LogLevelValue struct {
-	set   bool
-	value zerolog.Level
-}
-
-func (v LogLevelValue) DefaultString() string {
-	return zerolog.InfoLevel.String()
-}
-
-func (v LogLevelValue) String() string {
-	return v.value.String()
-}
-
-func (v *LogLevelValue) MaybeSet(value *string) error {
-	if value != nil {
-		return v.Set(*value)
-	}
-
-	return v.Set(v.DefaultString())
-}
-
-func (v *LogLevelValue) Set(value string) error {
-	level, err := zerolog.ParseLevel(value)
-	if err != nil {
-		return err
-	}
-
-	v.set = true
-	v.value = level
 	return nil
 }

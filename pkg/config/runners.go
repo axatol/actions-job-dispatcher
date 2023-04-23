@@ -6,10 +6,34 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+type RunnerScope struct {
+	Organisation string `yaml:"organisation" json:"organisation,omitempty"`
+	Repository   string `yaml:"repository" json:"repository,omitempty"`
+}
+
+func (s RunnerScope) Validate() error {
+	fields := []string{}
+
+	if s.Organisation != "" {
+		fields = append(fields, s.Organisation)
+	}
+
+	if s.Repository != "" {
+		fields = append(fields, s.Repository)
+	}
+
+	if len(fields) != 1 {
+		return fmt.Errorf(`must specify exactly one of "enterprise", "organisation", or "repository`)
+	}
+
+	return nil
+}
+
 type RunnerConfig struct {
 	// github
 
-	RunnerLabel string `yaml:"runner_label" json:"runner_label,omitempty"`
+	RunnerLabel string      `yaml:"runner_label" json:"runner_label,omitempty"`
+	Scope       RunnerScope `yaml:"scope"`
 
 	// scheduler
 
@@ -31,6 +55,10 @@ type RunnerConfig struct {
 func (c RunnerConfig) Validate() error {
 	if c.RunnerLabel == "" {
 		return fmt.Errorf("field required: RunnerLabel")
+	}
+
+	if err := c.Scope.Validate(); err != nil {
+		return err
 	}
 
 	if _, err := resource.ParseQuantity(c.Resources.CPULimit); err != nil {

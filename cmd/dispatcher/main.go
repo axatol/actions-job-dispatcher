@@ -43,9 +43,14 @@ func main() {
 
 	done := make(chan struct{})
 	go func() {
-		if err := server.NewServer(router).ListenAndServe(); err != nil {
-			log.Error().Err(err).Msg("server exited")
+		err := server.NewServer(router).ListenAndServe()
+
+		event := log.Info()
+		if err != http.ErrServerClosed {
+			event = log.Error()
 		}
+
+		event.Err(err).Msg("server exited")
 		done <- struct{}{}
 	}()
 
