@@ -13,6 +13,8 @@ jobs:
       - self-hosted
 
     steps:
+      - run: actions/checkout@v3
+
       - run: make build
 
       - if: inputs.upload-asset

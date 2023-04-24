@@ -7,4 +7,6 @@ jobs:
       - self-hosted
 
     steps:
+      - run: actions/checkout@v3
+
       - run: helm lint ./charts/actions-runner-broker
