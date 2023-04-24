@@ -1,0 +1,10 @@
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    runs-on:
+      - self-hosted
+
+    steps:
+      - run: helm lint ./charts/actions-runner-broker

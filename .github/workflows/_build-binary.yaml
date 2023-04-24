@@ -1,0 +1,23 @@
+on:
+  workflow_call:
+    inputs:
+      upload-asset:
+        description: Whether or not to upload the build output
+        type: boolean
+        default: false
+        required: false
+
+jobs:
+  build:
+    runs-on:
+      - self-hosted
+
+    steps:
+      - run: make build
+
+      - if: inputs.upload-asset
+        uses: actions/upload-artifact@v3
+        with:
+          name: bin
+          path: ./bin
+          retention-days: 1
