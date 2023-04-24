@@ -29,6 +29,10 @@ func (left Set) Equals(right Set) bool {
 	return true
 }
 
+func (left Set) EqualsStrs(right []string) bool {
+	return left.Equals(NewSet(right...))
+}
+
 func NewSet(elements ...string) Set {
 	set := Set{}
 

@@ -14,7 +14,7 @@ import (
 )
 
 func Dispatch(ctx context.Context, client *kubernetes.Clientset, runner config.RunnerConfig) error {
-	gh := gh.NewClient(ctx, runner.RunnerLabel)
+	gh := gh.NewClient(ctx, runner.Scope)
 	token, err := gh.CreateRegistrationToken(ctx)
 	if err != nil {
 		return err

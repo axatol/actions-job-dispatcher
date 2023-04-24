@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/axatol/actions-runner-broker/pkg/config"
 	"github.com/google/go-github/v51/github"
@@ -20,12 +19,12 @@ type Client struct {
 	config.RunnerScope
 }
 
-func NewClient(ctx context.Context, scope string) *Client {
+func NewClient(ctx context.Context, scope config.RunnerScope) *Client {
 	if clients == nil {
 		clients = map[string]Client{}
 	}
 
-	if client, ok := clients[scope]; ok {
+	if client, ok := clients[scope.String()]; ok {
 		return &client
 	}
 
@@ -41,7 +40,7 @@ func NewClient(ctx context.Context, scope string) *Client {
 	githubClient := github.NewClient(&httpClient)
 
 	client := Client{client: githubClient}
-	clients[scope] = client
+	clients[scope.String()] = client
 	return &client
 }
 
@@ -49,7 +48,7 @@ func (c Client) CreateRegistrationToken(ctx context.Context) (token *github.Regi
 	if c.RunnerScope.Organisation != "" {
 		token, _, err = c.client.Actions.CreateOrganizationRegistrationToken(ctx, c.RunnerScope.Organisation)
 	} else if c.RunnerScope.Repository != "" {
-		owner, repo, found := strings.Cut(c.RunnerScope.Repository, "/")
+		owner, repo, found := c.RunnerScope.GetRepo()
 		if !found {
 			return nil, fmt.Errorf("repository must be formatted as <owner>/<name>, got: %s", c.RunnerScope.Repository)
 		}

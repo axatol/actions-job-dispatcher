@@ -29,27 +29,63 @@ type Job struct {
 
 func (j Job) Hash() string {
 	hasher := sha1.New()
-	hasher.Write([]byte(j.runner.RunnerLabel))
+	hasher.Write([]byte(j.runner.Labels.String()))
+	hasher.Write([]byte(fmt.Sprint(time.Now().Unix())))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func (j Job) AddLabel(key, value string) {
+	if j.labels == nil {
+		j.labels = PrefixMap{}
+	}
+
 	j.labels.Add(key, value)
 }
 
 func (j Job) AddAnnotation(key, value string) {
+	if j.annotations == nil {
+		j.annotations = PrefixMap{}
+	}
+
 	j.annotations.Add(key, value)
 }
 
 func (j Job) AddEnv(key, value string) {
+	if j.env == nil {
+		j.env = EnvMap{}
+	}
+
 	j.env[key] = value
 }
 
+// note: need to include env var "RUNNER_TOKEN" for the runner to authenticate
 func (j Job) Build() batchv1.Job {
-	name := fmt.Sprintf("%s-%s", j.runner.RunnerLabel, j.Hash())
-	j.env["RUNNER_NAME"] = name
-	// TODO
-	// j.env["RUNNER_TOKEN"] =
+	name := fmt.Sprintf("%s-%s", j.runner.Labels, j.Hash())
+
+	j.AddLabel("runner-labels", j.runner.Labels.String())
+
+	j.AddEnv("RUNNER_NAME", name)
+	j.AddEnv("DISABLE_RUNNER_UPDATE", "true")
+	j.AddEnv("RUNNER_LABELS", j.runner.Labels.String())
+	j.AddEnv("DOCKER_ENABLED", "true")
+	j.AddEnv("DOCKERD_IN_RUNNER", "true")
+	j.AddEnv("GITHUB_URL", "https://github.com/")
+	j.AddEnv("RUNNER_WORKDIR", "/runner/_work")
+	j.AddEnv("RUNNER_EPHEMERAL", "true")
+	j.AddEnv("RUNNER_STATUS_UPDATE_HOOK", "true")
+	j.AddEnv("GITHUB_ACTIONS_RUNNER_EXTRA_USER_AGENT", "actions-runner-broker/v0.0.1")
+	j.AddEnv("MTU", "1400")
+	j.AddEnv("DOCKER_HOST", "tcp://localhost:2376")
+	j.AddEnv("DOCKER_TLS_VERIFY", "1")
+	j.AddEnv("DOCKER_CERT_PATH", "/certs/client")
+
+	if j.runner.Scope.IsOrg() {
+		j.AddEnv("RUNNER_ORG", j.runner.Scope.Organisation)
+	}
+
+	if j.runner.Scope.IsRepo() {
+		j.AddEnv("RUNNER_REPO", j.runner.Scope.Repository)
+	}
 
 	return batchv1.Job{
 		ObjectMeta: v1.ObjectMeta{
@@ -127,25 +163,9 @@ func (j Job) Build() batchv1.Job {
 
 func NewRunnerJob(runner config.RunnerConfig) Job {
 	job := Job{
-		runner: runner,
-		env: EnvMap{
-			"DISABLE_RUNNER_UPDATE":                  "true",
-			"RUNNER_LABELS":                          runner.RunnerLabel,
-			"DOCKER_ENABLED":                         "true",
-			"DOCKERD_IN_RUNNER":                      "true",
-			"GITHUB_URL":                             "https://github.com/",
-			"RUNNER_WORKDIR":                         "/runner/_work",
-			"RUNNER_EPHEMERAL":                       "true",
-			"RUNNER_STATUS_UPDATE_HOOK":              "true",
-			"GITHUB_ACTIONS_RUNNER_EXTRA_USER_AGENT": "actions-runner-broker/v0.0.1",
-			"MTU":                                    "1400",
-			"DOCKER_HOST":                            "tcp://localhost:2376",
-			"DOCKER_TLS_VERIFY":                      "1",
-			"DOCKER_CERT_PATH":                       "/certs/client",
-		},
-		labels: PrefixMap{
-			runnerLabelKey: runner.RunnerLabel,
-		},
+		runner:      runner,
+		env:         EnvMap{},
+		labels:      PrefixMap{},
 		annotations: PrefixMap{},
 	}
 

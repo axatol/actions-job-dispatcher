@@ -36,7 +36,7 @@ func Reconcile(ctx context.Context, client *kubernetes.Clientset) error {
 			if err := reconcileRunner(ctx, client, runner, jobs.Items); err != nil {
 				log.Error().
 					Err(err).
-					Str("runner_label", runner.RunnerLabel).
+					Strs("runner_labels", runner.Labels).
 					Msg("failed to reconcile runner")
 			}
 		}(runner)
@@ -56,35 +56,38 @@ func reconcileRunner(
 	// existing runners
 	matchingJobs := 0
 	for _, job := range jobs {
-		if label, ok := job.Labels[runnerLabelKey]; ok && label == runner.RunnerLabel {
+		if label, ok := job.Labels[runnerLabelKey]; ok && label == runner.Labels.String() {
 			matchingJobs += 1
 		}
-	}
-
-	// cannot exceed limits
-	if matchingJobs >= runner.MaxReplicas {
-		return nil
 	}
 
 	// queued/in-progress workflow jobs
 	matchingMeta := 0
 	for _, meta := range cache.List() {
-		if meta.RunnerLabel == runner.RunnerLabel {
+		if meta.RunnerLabel == runner.Labels.String() {
 			matchingMeta += 1
 		}
 	}
 
+	event := log.Info().
+		Strs("runner_label", runner.Labels).
+		Int("jobs", matchingJobs).
+		Int("requests", matchingMeta)
+
+	// cannot exceed limits
+	if matchingJobs >= runner.MaxReplicas {
+		event.Msg("runner is at maximum replicas")
+		return nil
+	}
+
 	// enough runners to satisfy jobs
-	if matchingMeta <= matchingJobs {
+	if matchingJobs >= matchingMeta {
+		event.Msg("runner replicas sufficient")
 		return nil
 	}
 
 	count := util.MinInt(matchingMeta-matchingJobs, runner.MaxReplicas)
-
-	log.Info().
-		Str("runner_label", runner.RunnerLabel).
-		Int("count", count).
-		Msg("dispatching jobs")
+	event.Int("new_jobs", count).Msg("dispatching jobs")
 
 	for i := 0; i < count; i++ {
 		if err := Dispatch(ctx, client, runner); err != nil {

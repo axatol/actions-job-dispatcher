@@ -12,7 +12,7 @@ import (
 func selectRunner(labels []string) *config.RunnerConfig {
 	targetRunnerLabels := util.NewSet(labels...)
 	for _, runner := range config.Runners {
-		if targetRunnerLabels.Equals(util.NewSet(RunnerLabelSelfHosted, runner.RunnerLabel)) {
+		if targetRunnerLabels.EqualsStrs(runner.Labels) {
 			return &runner
 		}
 	}
