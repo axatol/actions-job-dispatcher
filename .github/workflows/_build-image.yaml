@@ -4,6 +4,10 @@ on:
 env:
   image: public.ecr.aws/axatol/actions-runner-broker-dispatcher
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build:
     runs-on:
@@ -11,14 +15,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - run: make image
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: bin
-          path: ./bin
-          retention-days: 1
 
       - uses: aws-actions/configure-aws-credentials@v2
         with:

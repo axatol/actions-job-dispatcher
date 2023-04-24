@@ -9,4 +9,4 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - run: helm lint ./charts/actions-runner-broker
+      - run: make lint
