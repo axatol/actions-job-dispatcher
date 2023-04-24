@@ -15,6 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.20
+
       - run: make build
 
       - if: inputs.upload-asset
