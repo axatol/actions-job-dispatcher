@@ -12,10 +12,10 @@ metadata:
   labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
 type: Opaque
 data:
-  token: {{ get .Values.github.authSecret "token" | toString | b64enc }}
-  appId: {{ get .Values.github.authSecret "appId" | toString| b64enc }}
-  appInstallationId: {{ get .Values.github.authSecret "appInstallationId" | toString| b64enc }}
-  appPrivateKey: {{ get .Values.github.authSecret "appPrivateKey" | b64enc }}
+  GITHUB_TOKEN: {{ get .Values.github.authSecret "token" | toString | b64enc }}
+  GITHUB_APP_ID: {{ get .Values.github.authSecret "appId" | toString| b64enc }}
+  GITHUB_APP_INSTALLATION_ID: {{ get .Values.github.authSecret "appInstallationId" | toString| b64enc }}
+  GITHUB_APP_PRIVATE_KEY: {{ get .Values.github.authSecret "appPrivateKey" | b64enc }}
 {{- end -}}
 
 {{- define "actions-runner-broker.config" -}}

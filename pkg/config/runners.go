@@ -14,32 +14,32 @@ var (
 type RunnerConfig struct {
 	// github
 
-	Labels RunnerLabels `yaml:"labels" json:"labels"`
-	Scope  RunnerScope  `yaml:"scope" json:"scope"`
+	Labels RunnerLabels `yaml:"labels" json:"labels,omitempty"`
+	Scope  RunnerScope  `yaml:"scope"  json:"scope,omitempty"`
 
 	// scheduler
 
-	MaxReplicas int `yaml:"max_replicas" json:"max_replicas"`
+	MaxReplicas int `yaml:"max_replicas" json:"max_replicas,omitempty"`
 	// TODO? MinReplicas
 
 	// kubernetes
 
-	ServiceAccountName string          `yaml:"service_account_name" json:"service_account_name"`
-	Image              string          `yaml:"image" json:"image"`
-	Resources          RunnerResources `yaml:"resources" json:"resources"`
+	ServiceAccountName string          `yaml:"service_account_name" json:"service_account_name,omitempty"`
+	Image              string          `yaml:"image"                json:"image,omitempty"`
+	Resources          RunnerResources `yaml:"resources"            json:"resources,omitempty"`
 }
 
 func (c RunnerConfig) Validate() error {
 	if err := c.Labels.Validate(); err != nil {
-		return err
+		return fmt.Errorf("invalid labels: %s", err)
 	}
 
 	if err := c.Scope.Validate(); err != nil {
-		return err
+		return fmt.Errorf("invalid scope: %s", err)
 	}
 
 	if err := c.Resources.Validate(); err != nil {
-		return err
+		return fmt.Errorf("invalid resources: %s", err)
 	}
 
 	return nil
@@ -53,7 +53,7 @@ func (rl RunnerLabels) String() string {
 
 func (rl RunnerLabels) Validate() error {
 	if rl == nil || len(rl) < 1 {
-		return fmt.Errorf("field required: runner_labels")
+		return fmt.Errorf("field required: labels")
 	}
 
 	return nil
@@ -70,8 +70,8 @@ func (rl RunnerLabels) Has(search string) bool {
 }
 
 type RunnerScope struct {
-	Organisation string `yaml:"organisation" json:"organisation"`
-	Repository   string `yaml:"repository" json:"repository"`
+	Organisation string `yaml:"organisation" json:"organisation,omitempty"`
+	Repository   string `yaml:"repository"   json:"repository,omitempty"`
 }
 
 func (rs RunnerScope) String() string {
@@ -113,9 +113,9 @@ func (rs RunnerScope) Validate() error {
 }
 
 type RunnerResources struct {
-	CPULimit      string `yaml:"cpu_limit" json:"cpu_limit"`
-	MemoryLimit   string `yaml:"memory_limit" json:"memory_limit"`
-	CPURequest    string `yaml:"cpu_request" json:"cpu_request"`
+	CPULimit      string `yaml:"cpu_limit"      json:"cpu_limit"`
+	MemoryLimit   string `yaml:"memory_limit"   json:"memory_limit"`
+	CPURequest    string `yaml:"cpu_request"    json:"cpu_request"`
 	MemoryRequest string `yaml:"memory_request" json:"memory_request"`
 }
 

@@ -90,7 +90,7 @@ func (j Job) Build() batchv1.Job {
 	return batchv1.Job{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
-			Namespace: config.Namespace,
+			Namespace: config.Namespace.Value(),
 			Labels:    j.labels,
 		},
 

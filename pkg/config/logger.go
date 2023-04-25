@@ -8,10 +8,10 @@ import (
 )
 
 func configureLogger() {
-	level, _ := zerolog.ParseLevel(LogLevel.value)
+	level, _ := zerolog.ParseLevel(logLevel.value)
 	zerolog.SetGlobalLevel(level)
 
-	if LogFormat.value == LogFormatText {
+	if logFormat.value == LogFormatText {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	}
 }

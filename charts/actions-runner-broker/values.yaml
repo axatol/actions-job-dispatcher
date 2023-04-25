@@ -3,6 +3,7 @@ image: public.ecr.aws/axatol/actions-runner-broker:latest
 github:
   authSecret:
     create: false
+    # token:
     # appId:
     # appInstallationId:
     # appPrivateKey:

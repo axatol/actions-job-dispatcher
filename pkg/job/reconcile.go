@@ -22,7 +22,7 @@ func Reconcile(ctx context.Context, client *kubernetes.Clientset) error {
 		}).String(),
 	}
 
-	jobs, err := client.BatchV1().Jobs(config.Namespace).List(ctx, opts)
+	jobs, err := client.BatchV1().Jobs(config.Namespace.Value()).List(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to list jobs: %s", err)
 	}

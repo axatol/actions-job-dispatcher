@@ -8,7 +8,6 @@ import (
 	"github.com/axatol/actions-runner-broker/pkg/config"
 	"github.com/google/go-github/v51/github"
 	"github.com/gregjones/httpcache"
-	"golang.org/x/oauth2"
 )
 
 // caches an instance of the client for each authenticated scope
@@ -19,29 +18,31 @@ type Client struct {
 	config.RunnerScope
 }
 
-func NewClient(ctx context.Context, scope config.RunnerScope) *Client {
+func NewClient(ctx context.Context, scope config.RunnerScope) (*Client, error) {
 	if clients == nil {
 		clients = map[string]Client{}
 	}
 
 	if client, ok := clients[scope.String()]; ok {
-		return &client
+		return &client, nil
 	}
 
-	token := oauth2.Token{AccessToken: config.GithubToken.String()}
-	oauth2Client := oauth2.NewClient(ctx, oauth2.StaticTokenSource(&token))
+	oauthTransport, err := githubAuthTransport(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	cache := httpcache.NewTransport(httpcache.NewMemoryCache())
-	cache.Transport = oauth2Client.Transport
+	cache.Transport = oauthTransport
 
-	logging := LoggingTransport{Transport: cache}
+	logging := loggingTransport{Transport: cache}
 
 	httpClient := http.Client{Transport: logging}
 	githubClient := github.NewClient(&httpClient)
 
 	client := Client{client: githubClient}
 	clients[scope.String()] = client
-	return &client
+	return &client, nil
 }
 
 func (c Client) CreateRegistrationToken(ctx context.Context) (token *github.RegistrationToken, err error) {

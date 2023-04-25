@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,18 +10,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var (
-	kubeConfig  string
-	kubeContext string
-	Namespace   string
-)
-
-func registerKubernetesFlags() {
-	flag.StringVar(&kubeConfig, "kubeconfig", "", "path to the kubeconfig file")
-	flag.StringVar(&kubeContext, "context", "", "specify a kubernetes context")
-	flag.StringVar(&Namespace, "namespace", "", "specify a kubernetes namespace")
-}
-
 func resolveKubeConfig() (*rest.Config, error) {
 	cfgCluster, errCluster := rest.InClusterConfig()
 	if errCluster == nil {
@@ -30,8 +17,8 @@ func resolveKubeConfig() (*rest.Config, error) {
 	}
 
 	precedence := []string{}
-	if kubeConfig != "" {
-		precedence = append(precedence, kubeConfig)
+	if kubeConfig.Value() != "" {
+		precedence = append(precedence, kubeConfig.Value())
 	}
 
 	if home, _ := os.UserHomeDir(); home != "" {
@@ -40,7 +27,7 @@ func resolveKubeConfig() (*rest.Config, error) {
 
 	cfgLocal, errLocal := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{Precedence: precedence},
-		&clientcmd.ConfigOverrides{CurrentContext: kubeContext},
+		&clientcmd.ConfigOverrides{CurrentContext: kubeContext.Value()},
 	).ClientConfig()
 	if errLocal == nil {
 		return cfgLocal, nil
