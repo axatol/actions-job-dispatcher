@@ -33,13 +33,17 @@ func main() {
 	}
 
 	log.Info().
-		Str("server", serverVersion.GitVersion).
-		Msg("configured kubernetes client")
+		Str("kubernetes_server", serverVersion.GitVersion).
+		Strs("serving_runner_labels", config.Runners.Strs()).
+		Bool("dry_run", config.DryRun.Value()).
+		Int("sync_interval", config.SyncInterval.Value()).
+		Send()
 
 	router := server.NewRouter()
 	router.Get("/api/health", handle_Health(client))
 	router.Get("/api/runners", handle_ListRunners)
-	router.Post("/api/job", handle_GithubWebhook(client))
+	router.Get("/api/jobs", handle_ListJobs)
+	router.Post("/api/webhook", handle_GithubWebhook(client))
 
 	done := make(chan struct{})
 	go func() {
@@ -74,13 +78,19 @@ func handle_Health(client *kubernetes.Clientset) http.HandlerFunc {
 			return
 		}
 
-		server.ResponseOK().Write(w)
+		server.ResponseOK("").Write(w)
 	}
 }
 
 func handle_ListRunners(w http.ResponseWriter, r *http.Request) {
-	resp := server.ResponseOK()
+	resp := server.ResponseOK("")
 	resp.Data = config.Runners
+	resp.Write(w)
+}
+
+func handle_ListJobs(w http.ResponseWriter, r *http.Request) {
+	resp := server.ResponseOK("")
+	resp.Data = cache.List()
 	resp.Write(w)
 }
 
@@ -95,36 +105,36 @@ func handle_GithubWebhook(client *kubernetes.Clientset) http.HandlerFunc {
 
 		payload, err := github.ValidatePayload(r, []byte{})
 		if err != nil {
-			server.ResponseErr(err, "received invalid payload").Write(w)
+			server.ResponseErr(err, "received invalid payload").Write(w, log)
 			return
 		}
 
 		event, err := github.ParseWebHook(webhookType, payload)
 		if err != nil {
-			server.ResponseErr(err, "could not parse webhook").Write(w)
+			server.ResponseErr(err, "could not parse webhook").Write(w, log)
 			return
 		}
 
 		switch e := event.(type) {
-		case github.PingEvent:
+		case *github.PingEvent:
 			log.Info().Msg("responding to ping")
 			// wants a raw "pong"
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("pong"))
 			return
 
-		case github.WorkflowJobEvent:
+		case *github.WorkflowJobEvent:
 			log.Info().Msg("handling workflow job webhook")
-			cache.HandleWorkflowJobEvent(e)
-			if err := job.DispatchByEvent(r.Context(), client, e); err != nil {
-				log.Error().Err(err).Msg("failed to dispatch job")
-				w.WriteHeader(http.StatusInternalServerError)
-				return
+			if cache.CacheWorkflowJobEvent(e) {
+				if err := job.DispatchByEvent(r.Context(), client, e); err != nil {
+					server.ResponseErr(err, "failed to dispatch job").Write(w, log)
+					return
+				}
 			}
 
 		default:
 			log.Info().Str("event_type", webhookType).Msg("ignoring webhook")
-			server.ResponseOK()
+			server.ResponseOK("")
 			return
 		}
 	}

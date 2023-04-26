@@ -8,6 +8,7 @@ import (
 	"github.com/axatol/actions-runner-broker/pkg/config"
 	"github.com/google/go-github/v51/github"
 	"github.com/gregjones/httpcache"
+	"github.com/rs/zerolog/log"
 )
 
 // caches an instance of the client for each authenticated scope
@@ -40,21 +41,30 @@ func NewClient(ctx context.Context, scope config.RunnerScope) (*Client, error) {
 	httpClient := http.Client{Transport: logging}
 	githubClient := github.NewClient(&httpClient)
 
-	client := Client{client: githubClient}
+	client := Client{client: githubClient, RunnerScope: scope}
 	clients[scope.String()] = client
 	return &client, nil
 }
 
 func (c Client) CreateRegistrationToken(ctx context.Context) (token *github.RegistrationToken, err error) {
-	if c.RunnerScope.Organisation != "" {
+	log.Debug().
+		Bool("is_org", c.RunnerScope.IsOrg()).
+		Bool("is_repo", c.RunnerScope.IsRepo()).
+		Str("org", c.RunnerScope.Organisation).
+		Str("repo", c.RunnerScope.Repository).
+		Send()
+
+	if c.RunnerScope.IsOrg() {
 		token, _, err = c.client.Actions.CreateOrganizationRegistrationToken(ctx, c.RunnerScope.Organisation)
-	} else if c.RunnerScope.Repository != "" {
+	} else if c.RunnerScope.IsRepo() {
 		owner, repo, found := c.RunnerScope.GetRepo()
 		if !found {
 			return nil, fmt.Errorf("repository must be formatted as <owner>/<name>, got: %s", c.RunnerScope.Repository)
 		}
 
 		token, _, err = c.client.Actions.CreateRegistrationToken(ctx, owner, repo)
+	} else {
+		return nil, fmt.Errorf("no github authentication scope available")
 	}
 
 	if err != nil {

@@ -28,6 +28,11 @@ func Dispatch(ctx context.Context, client *kubernetes.Clientset, runner config.R
 	job.env.MaybeAdd("RUNNER_TOKEN", token.Token)
 	tmpl := job.Build()
 
+	if config.DryRun.Value() {
+		log.Debug().Any("template", tmpl).Msg("dry run enabled: not dispatching")
+		return nil
+	}
+
 	response, err := client.BatchV1().Jobs(tmpl.Namespace).Create(ctx, &tmpl, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -40,7 +45,7 @@ func Dispatch(ctx context.Context, client *kubernetes.Clientset, runner config.R
 	return nil
 }
 
-func DispatchByEvent(ctx context.Context, client *kubernetes.Clientset, event github.WorkflowJobEvent) error {
+func DispatchByEvent(ctx context.Context, client *kubernetes.Clientset, event *github.WorkflowJobEvent) error {
 	runner := selectRunner(event.WorkflowJob.Labels)
 	if runner == nil {
 		return fmt.Errorf("no matching runner for labels: %s", strings.Join(event.WorkflowJob.Labels, ", "))

@@ -14,6 +14,7 @@ var (
 	// global
 
 	ConfigFile string
+	DryRun     = BoolFlagValue{defaultValue: false}
 	logLevel   = StringFlagValue{defaultValue: zerolog.InfoLevel.String(), validate: validateLogLevel}
 	logFormat  = StringFlagValue{defaultValue: LogFormatJSON, validate: validateLogFormat}
 
@@ -41,6 +42,7 @@ func LoadConfig() {
 	flag.StringVar(&ConfigFile, "config-file", "", "path to config")
 	flag.Var(&logLevel, "log-level", "logging level")
 	flag.Var(&logFormat, "log-format", `log format, one of: "text", "json"`)
+	flag.Var(&DryRun, "dry-run", "disables job creation")
 
 	// github
 
@@ -55,7 +57,7 @@ func LoadConfig() {
 	flag.Var(&kubeContext, "kube-context", "specify a kubernetes context")
 	flag.Var(&Namespace, "namespace", "specify a kubernetes namespace")
 
-	// reconciler
+	// dispatcher
 
 	flag.Var(&SyncInterval, "sync-interval", "seconds between reconciliation attempts (minimum 30s)")
 
@@ -68,10 +70,10 @@ func LoadConfig() {
 }
 
 func loadConfigFromEnv() {
-
 	// global
 	maybeSetEnv("LOG_LEVEL", &logLevel)
 	maybeSetEnv("LOG_FORMAT", &logFormat)
+	maybeSetEnv("DRY_RUN", &DryRun)
 
 	// github
 	maybeSetEnv("GITHUB_TOKEN", &GithubToken)
@@ -84,7 +86,7 @@ func loadConfigFromEnv() {
 	maybeSetEnv("KUBE_CONTEXT", &kubeContext)
 	maybeSetEnv("NAMESPACE", &Namespace)
 
-	// reconciler
+	// dispatcher
 	maybeSetEnv("SYNC_INTERVAL", &SyncInterval)
 }
 
@@ -114,6 +116,7 @@ func loadConfigFromFile() {
 
 			LogLevel  *string `yaml:"log_level"`
 			LogFormat *string `yaml:"log_format"`
+			DryRun    *string `yaml:"dry_run"`
 
 			// github
 			GithubToken             *string `yaml:"github_token"`
@@ -127,13 +130,10 @@ func loadConfigFromFile() {
 			KubeContext *string `yaml:"kube_context"`
 			Namespace   *string `yaml:"namespace"`
 
-			// reconciler
-
-			SyncInterval *int `yaml:"sync_interval"`
-
 			// dispatcher
 
-			Runners []RunnerConfig `yaml:"runners"`
+			SyncInterval *string        `yaml:"sync_interval"`
+			Runners      []RunnerConfig `yaml:"runners"`
 		}
 
 		if err := yaml.Unmarshal(raw, &cfg); err != nil {
@@ -142,6 +142,7 @@ func loadConfigFromFile() {
 
 		logLevel.MaybeSet(cfg.LogLevel)
 		logFormat.MaybeSet(cfg.LogFormat)
+		DryRun.MaybeSet(cfg.DryRun)
 
 		GithubToken.MaybeSet(cfg.GithubToken)
 		GithubAppID.MaybeSet(cfg.GithubAppID)
@@ -151,6 +152,8 @@ func loadConfigFromFile() {
 		kubeConfig.MaybeSet(cfg.KubeConfig)
 		kubeContext.MaybeSet(cfg.KubeContext)
 		Namespace.MaybeSet(cfg.Namespace)
+
+		SyncInterval.MaybeSet(cfg.SyncInterval)
 
 		Runners = cfg.Runners
 		for i, runner := range Runners {

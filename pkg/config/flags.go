@@ -130,3 +130,47 @@ func (v *Int64FlagValue) Set(raw string) error {
 	v.value = value
 	return nil
 }
+
+type BoolFlagValue struct {
+	set          bool
+	value        bool
+	defaultValue bool
+	validate     func(bool) error
+}
+
+func (v BoolFlagValue) Value() bool {
+	return v.value
+}
+
+func (v BoolFlagValue) String() string {
+	return strconv.FormatBool(v.value)
+}
+
+func (v *BoolFlagValue) MaybeSet(value *string) error {
+	if v.set {
+		return nil
+	}
+
+	if value != nil {
+		return v.Set(*value)
+	}
+
+	return v.Set(strconv.FormatBool(v.defaultValue))
+}
+
+func (v *BoolFlagValue) Set(raw string) error {
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return err
+	}
+
+	if v.validate != nil {
+		if err := v.validate(value); err != nil {
+			return err
+		}
+	}
+
+	v.set = true
+	v.value = value
+	return nil
+}

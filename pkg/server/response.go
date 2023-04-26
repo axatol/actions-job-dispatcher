@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -14,13 +15,10 @@ type Response[T any] struct {
 	Error   error  `json:"-"`
 }
 
-func (r *Response[T]) Write(w http.ResponseWriter) {
-	if r.Status < http.StatusOK {
-		if r.Error != nil {
-			r.Status = http.StatusInternalServerError
-		} else {
-			r.Status = http.StatusOK
-		}
+func (r *Response[T]) Write(w http.ResponseWriter, logger ...zerolog.Logger) {
+	log := log.Logger
+	if len(logger) == 1 {
+		log = logger[0]
 	}
 
 	if r.Status == http.StatusOK && r.Message == "" {
@@ -32,11 +30,7 @@ func (r *Response[T]) Write(w http.ResponseWriter) {
 	}
 
 	if r.Error != nil {
-		log.Error().
-			Err(r.Error).
-			Int("status", r.Status).
-			Str("message", r.Message).
-			Msg("error handling request")
+		log.Error().Err(r.Error).Msg(r.Message)
 	}
 
 	raw, err := json.Marshal(r)
@@ -60,28 +54,25 @@ func (r *Response[T]) Write(w http.ResponseWriter) {
 	}
 }
 
-func responseWithMessage[T any](resp *Response[T], message ...string) *Response[T] {
-	if len(message) == 1 {
-		resp.Message = message[0]
+func ResponseOK(message string) *Response[any] {
+	return &Response[any]{
+		Status:  http.StatusOK,
+		Message: message,
 	}
-
-	return resp
 }
 
-func ResponseOK(message ...string) *Response[any] {
-	resp := Response[any]{Status: http.StatusOK}
-	return responseWithMessage(&resp, message...)
-}
-
-func ResponseErr(err error, message ...string) *Response[any] {
-	return responseWithMessage(&Response[any]{Error: err}, message...)
-}
-
-func ResponseBadReq(err error, message ...string) *Response[any] {
-	resp := Response[any]{
-		Status: http.StatusBadRequest,
-		Error:  err,
+func ResponseErr(err error, message string) *Response[any] {
+	return &Response[any]{
+		Status:  http.StatusInternalServerError,
+		Message: message,
+		Error:   err,
 	}
+}
 
-	return responseWithMessage(&resp, message...)
+func ResponseBadReq(err error, message string) *Response[any] {
+	return &Response[any]{
+		Status:  http.StatusBadRequest,
+		Message: message,
+		Error:   err,
+	}
 }

@@ -60,7 +60,7 @@ func (j Job) AddEnv(key, value string) {
 
 // note: need to include env var "RUNNER_TOKEN" for the runner to authenticate
 func (j Job) Build() batchv1.Job {
-	name := fmt.Sprintf("%s-%s", j.runner.Labels, j.Hash())
+	name := fmt.Sprintf("runner-%s-%s", j.runner.Slug(), j.Hash()[:8])
 
 	j.AddLabel("runner-labels", j.runner.Labels.String())
 
@@ -162,12 +162,10 @@ func (j Job) Build() batchv1.Job {
 }
 
 func NewRunnerJob(runner config.RunnerConfig) Job {
-	job := Job{
+	return Job{
 		runner:      runner,
 		env:         EnvMap{},
 		labels:      PrefixMap{},
 		annotations: PrefixMap{},
 	}
-
-	return job
 }

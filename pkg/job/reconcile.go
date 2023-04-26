@@ -64,7 +64,7 @@ func reconcileRunner(
 	// queued/in-progress workflow jobs
 	matchingMeta := 0
 	for _, meta := range cache.List() {
-		if meta.RunnerLabel == runner.Labels.String() {
+		if util.NewSet(meta.Labels...).EqualsStrs(runner.Labels) {
 			matchingMeta += 1
 		}
 	}

@@ -4,12 +4,24 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-github/v51/github"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
-	Runners []RunnerConfig
+	Runners RunnerConfigList
 )
+
+type RunnerConfigList []RunnerConfig
+
+func (rcl RunnerConfigList) Strs() []string {
+	results := []string{}
+	for _, runner := range rcl {
+		results = append(results, runner.String())
+	}
+
+	return results
+}
 
 type RunnerConfig struct {
 	// github
@@ -27,6 +39,18 @@ type RunnerConfig struct {
 	ServiceAccountName string          `yaml:"service_account_name" json:"service_account_name,omitempty"`
 	Image              string          `yaml:"image"                json:"image,omitempty"`
 	Resources          RunnerResources `yaml:"resources"            json:"resources,omitempty"`
+}
+
+func (c RunnerConfig) String() string {
+	return fmt.Sprintf("%s:%s", c.Scope.String(), strings.Join(c.Labels, "+"))
+}
+
+func (c RunnerConfig) Slug() string {
+	slug := c.String()
+	slug = strings.ReplaceAll(slug, "/", "_") // repo delim
+	slug = strings.ReplaceAll(slug, "+", "_") // scope delim
+	slug = strings.ReplaceAll(slug, ":", "-") // label delim
+	return slug
 }
 
 func (c RunnerConfig) Validate() error {
@@ -110,6 +134,24 @@ func (rs RunnerScope) Validate() error {
 	}
 
 	return nil
+}
+
+func RunnerScopeFromWorkflowJobEvent(e *github.WorkflowJobEvent) (*RunnerScope, error) {
+	scope := RunnerScope{}
+
+	if org := e.GetOrg(); org != nil {
+		scope.Organisation = *org.Login
+	}
+
+	if repo := e.GetRepo(); repo != nil {
+		scope.Repository = *repo.FullName
+	}
+
+	if err := scope.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &scope, nil
 }
 
 type RunnerResources struct {

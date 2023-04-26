@@ -10,13 +10,13 @@ import (
 var cache map[int64]WorkflowJobMeta
 
 type WorkflowJobMeta struct {
-	ID          int64     `json:"id"`
-	RunID       int64     `json:"run_id"`
-	Name        string    `json:"name"`
-	RunnerLabel string    `json:"runner_label"`
-	URL         string    `json:"url"`
-	CreatedAt   time.Time `json:"queued_at"`
-	StartedAt   time.Time `json:"in_progress_at"`
+	JobID     int64     `json:"job_id"`
+	RunID     int64     `json:"run_id"`
+	Name      string    `json:"name"`
+	Labels    []string  `json:"runner_labels"`
+	URL       string    `json:"url"`
+	CreatedAt time.Time `json:"queued_at"`
+	StartedAt time.Time `json:"in_progress_at"`
 }
 
 func List() []WorkflowJobMeta {
@@ -29,7 +29,11 @@ func List() []WorkflowJobMeta {
 }
 
 func Set(meta WorkflowJobMeta) WorkflowJobMeta {
-	cache[meta.ID] = meta
+	if cache == nil {
+		cache = map[int64]WorkflowJobMeta{}
+	}
+
+	cache[meta.JobID] = meta
 	return meta
 }
 
@@ -45,14 +49,14 @@ func Del(id int64) {
 	delete(cache, id)
 }
 
-func HandleWorkflowJobEvent(event github.WorkflowJobEvent) {
+func CacheWorkflowJobEvent(event *github.WorkflowJobEvent) bool {
 	meta := Get(event.WorkflowJob.GetID())
 	if meta == nil {
 		meta = &WorkflowJobMeta{
-			ID:          event.WorkflowJob.GetID(),
-			RunID:       event.WorkflowJob.GetRunID(),
-			RunnerLabel: event.WorkflowJob.Labels[1],
-			URL:         event.WorkflowJob.GetHTMLURL(),
+			JobID:  event.WorkflowJob.GetID(),
+			RunID:  event.WorkflowJob.GetRunID(),
+			Labels: event.WorkflowJob.Labels,
+			URL:    event.WorkflowJob.GetHTMLURL(),
 		}
 	}
 
@@ -61,21 +65,22 @@ func HandleWorkflowJobEvent(event github.WorkflowJobEvent) {
 	case "in_progress":
 		meta.StartedAt = time.Now()
 		Set(*meta)
-		return
+		return true
 
 	case "queued":
 		meta.CreatedAt = time.Now()
 		Set(*meta)
-		return
+		return true
 
 	case "completed":
-		Del(meta.ID)
-		return
+		Del(meta.JobID)
+		return false
 
 	default:
 		log.Warn().
 			Str("status", status).
 			Interface("meta", meta).
 			Msg("unhandled workflow job status")
+		return false
 	}
 }
