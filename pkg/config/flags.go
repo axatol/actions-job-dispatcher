@@ -4,22 +4,22 @@ import (
 	"strconv"
 )
 
-type StringFlagValue struct {
+type stringFlag struct {
 	set          bool
 	value        string
 	defaultValue string
 	validate     func(string) error
 }
 
-func (v StringFlagValue) Value() string {
+func (v stringFlag) Value() string {
 	return v.value
 }
 
-func (v StringFlagValue) String() string {
+func (v stringFlag) String() string {
 	return v.value
 }
 
-func (v *StringFlagValue) MaybeSet(value *string) error {
+func (v *stringFlag) MaybeSet(value *string) error {
 	if v.set {
 		return nil
 	}
@@ -31,7 +31,7 @@ func (v *StringFlagValue) MaybeSet(value *string) error {
 	return v.Set(v.defaultValue)
 }
 
-func (v *StringFlagValue) Set(value string) error {
+func (v *stringFlag) Set(value string) error {
 	if v.validate != nil {
 		if err := v.validate(value); err != nil {
 			return err
@@ -87,22 +87,22 @@ func (v *IntFlagValue) Set(raw string) error {
 	return nil
 }
 
-type Int64FlagValue struct {
+type int64Flag struct {
 	set          bool
 	value        int64
 	defaultValue int64
 	validate     func(int64) error
 }
 
-func (v Int64FlagValue) Value() int64 {
+func (v int64Flag) Value() int64 {
 	return v.value
 }
 
-func (v Int64FlagValue) String() string {
+func (v int64Flag) String() string {
 	return strconv.FormatInt(v.value, 10)
 }
 
-func (v *Int64FlagValue) MaybeSet(value *string) error {
+func (v *int64Flag) MaybeSet(value *string) error {
 	if v.set {
 		return nil
 	}
@@ -114,7 +114,7 @@ func (v *Int64FlagValue) MaybeSet(value *string) error {
 	return v.Set(strconv.FormatInt(v.defaultValue, 10))
 }
 
-func (v *Int64FlagValue) Set(raw string) error {
+func (v *int64Flag) Set(raw string) error {
 	value, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
 		return err
@@ -131,22 +131,22 @@ func (v *Int64FlagValue) Set(raw string) error {
 	return nil
 }
 
-type BoolFlagValue struct {
+type boolFlag struct {
 	set          bool
 	value        bool
 	defaultValue bool
 	validate     func(bool) error
 }
 
-func (v BoolFlagValue) Value() bool {
+func (v boolFlag) Value() bool {
 	return v.value
 }
 
-func (v BoolFlagValue) String() string {
+func (v boolFlag) String() string {
 	return strconv.FormatBool(v.value)
 }
 
-func (v *BoolFlagValue) MaybeSet(value *string) error {
+func (v *boolFlag) MaybeSet(value *string) error {
 	if v.set {
 		return nil
 	}
@@ -158,7 +158,7 @@ func (v *BoolFlagValue) MaybeSet(value *string) error {
 	return v.Set(strconv.FormatBool(v.defaultValue))
 }
 
-func (v *BoolFlagValue) Set(raw string) error {
+func (v *boolFlag) Set(raw string) error {
 	value, err := strconv.ParseBool(raw)
 	if err != nil {
 		return err

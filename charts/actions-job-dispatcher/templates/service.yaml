@@ -1,4 +1,4 @@
-{{- define "actions-runner-broker.dispatcher-service" -}}
+{{- define "actions-job-dispatcher.dispatcher-service" -}}
 {{ .Release.Name }}-dispatcher-service
 {{- end -}}
 
@@ -7,11 +7,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "actions-runner-broker.dispatcher-service" . }}
+  name: {{ include "actions-job-dispatcher.dispatcher-service" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
+  labels: {{- include "actions-job-dispatcher.labels" . | nindent 4 }}
 spec:
-  selector: {{- include "actions-runner-broker.selectors" . | nindent 4 }}
+  selector: {{- include "actions-job-dispatcher.selectors" . | nindent 4 }}
   ports:
   - port: {{ .Values.service.exposedPort }}
     targetPort: {{ .Values.service.exposedPort }}

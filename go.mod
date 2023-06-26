@@ -1,4 +1,4 @@
-module github.com/axatol/actions-runner-broker
+module github.com/axatol/actions-job-dispatcher
 
 go 1.20
 

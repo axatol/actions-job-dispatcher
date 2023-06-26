@@ -1,26 +1,26 @@
-{{- define "actions-runner-broker.dispatcher" -}}
-{{ .Release.Name }}-dispatcher
+{{- define "actions-job-dispatcher.dispatcher" -}}
+{{ .Release.Name }}
 {{- end -}}
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "actions-runner-broker.dispatcher" . }}
+  name: {{ include "actions-job-dispatcher.dispatcher" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
+  labels: {{- include "actions-job-dispatcher.labels" . | nindent 4 }}
 spec:
   selector:
-    matchLabels: {{- include "actions-runner-broker.selectors" . | nindent 6 }}
+    matchLabels: {{- include "actions-job-dispatcher.selectors" . | nindent 6 }}
   template:
     metadata:
-      labels: {{- include "actions-runner-broker.selectors" . | nindent 8 }}
+      labels: {{- include "actions-job-dispatcher.selectors" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ get .Values.rbac "serviceAccountName" | default (include "actions-runner-broker.dispatcher" .) }}
+      serviceAccountName: {{ get .Values.rbac "serviceAccountName" | default (include "actions-job-dispatcher.dispatcher" .) }}
       containers:
         - name: dispatcher
           image: {{ .Values.image }}
-          serviceAccount: {{ include "actions-runner-broker.dispatcher" . }}
+          serviceAccount: {{ include "actions-job-dispatcher.dispatcher" . }}
           args:
             - -config-file
             - /config/config.yaml
@@ -31,7 +31,7 @@ spec:
           {{- if .Values.github.authSecret.create }}
           envFrom:
             - secretRef:
-                name: {{ include "actions-runner-broker.auth-secret" . }}
+                name: {{ include "actions-job-dispatcher.auth-secret" . }}
           {{- end }}
           {{- if or .Values.service.enabled .Values.ingress.enabled }}
           ports:

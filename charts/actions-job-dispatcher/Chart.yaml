@@ -1,0 +1,16 @@
+apiVersion: v2
+name: actions-job-dispatcher
+description: Job dispatcher for GitHub workflows
+type: application
+
+version: 0.0.1
+appVersion: 0.0.1
+
+home: https://github.com/axatol/actions-job-dispatcher
+
+sources:
+  - https://github.com/axatol/actions-job-dispatcher
+
+maintainers:
+  - name: axatol
+    url: https://github.com/axatol

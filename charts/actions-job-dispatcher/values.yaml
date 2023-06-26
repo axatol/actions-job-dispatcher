@@ -1,4 +1,4 @@
-image: public.ecr.aws/axatol/actions-runner-broker:latest
+image: public.ecr.aws/axatol/actions-job-dispatcher:latest
 
 github:
   authSecret:

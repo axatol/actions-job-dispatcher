@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/axatol/actions-runner-broker/pkg/config"
-	"github.com/axatol/actions-runner-broker/pkg/gh"
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/gh"
 	"github.com/google/go-github/v51/github"
 	"github.com/rs/zerolog/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

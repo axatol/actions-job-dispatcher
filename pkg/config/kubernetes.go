@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,4 +49,21 @@ func KubeClient() (*kubernetes.Clientset, error) {
 	}
 
 	return client, nil
+}
+
+type k8sClientContextKeyType string
+
+const k8sClientContextKey k8sClientContextKeyType = "kubernetes client"
+
+func KubeClientFromContext(ctx context.Context) *kubernetes.Clientset {
+	value := ctx.Value(k8sClientContextKey)
+	if client, ok := value.(*kubernetes.Clientset); ok {
+		return client
+	}
+
+	return nil
+}
+
+func ContextWithKubeClient(ctx context.Context, client *kubernetes.Clientset) context.Context {
+	return context.WithValue(ctx, k8sClientContextKey, client)
 }

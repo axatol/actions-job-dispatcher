@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/axatol/actions-runner-broker/pkg/config"
-	"github.com/axatol/actions-runner-broker/pkg/util"
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -27,7 +27,7 @@ func (m PrefixMap) Add(key string, value any) {
 		value = "unknown"
 	}
 
-	key = fmt.Sprintf("%s/%s", "actions-runner-broker", key)
+	key = fmt.Sprintf("%s/%s", "actions-job-dispatcher", key)
 	m[key] = fmt.Sprint(reflect.ValueOf(value))
 }
 

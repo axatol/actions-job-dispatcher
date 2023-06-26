@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/axatol/actions-runner-broker/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/gregjones/httpcache"
 	"github.com/rs/zerolog/log"

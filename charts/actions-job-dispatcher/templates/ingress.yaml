@@ -5,7 +5,7 @@ kind: Ingress
 metadata:
   name: {{ .Release.Name }}-ingress
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "actions-runner-broker.labels" . | nindent 4 }}
+  labels: {{- include "actions-job-dispatcher.labels" . | nindent 4 }}
   annotations: {{- toYaml .Values.ingress.annotations | nindent 4 }}
 spec:
   {{- if .Values.ingress.tls }}
@@ -21,7 +21,7 @@ spec:
             backend:
               service:
                 {{- with $ }}
-                name: {{ include "actions-runner-broker.dispatcher-service" . }}
+                name: {{ include "actions-job-dispatcher.dispatcher-service" . }}
                 {{- end }}
                 port:
                   number: 8000

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/axatol/actions-runner-broker/pkg/config"
-	"github.com/axatol/actions-runner-broker/pkg/util"
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/util"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -16,8 +16,8 @@ import (
 
 var (
 	jobSelectorKey   = "app.kubernetes.io/managed-by"
-	jobSelectorValue = "actions-runner-broker"
-	runnerLabelKey   = "actions-runner-broker/runner-label"
+	jobSelectorValue = "actions-job-dispatcher"
+	runnerLabelKey   = "actions-job-dispatcher/runner-label"
 )
 
 type Job struct {
@@ -73,7 +73,7 @@ func (j Job) Build() batchv1.Job {
 	j.AddEnv("RUNNER_WORKDIR", "/runner/_work")
 	j.AddEnv("RUNNER_EPHEMERAL", "true")
 	j.AddEnv("RUNNER_STATUS_UPDATE_HOOK", "true")
-	j.AddEnv("GITHUB_ACTIONS_RUNNER_EXTRA_USER_AGENT", "actions-runner-broker/v0.0.1")
+	j.AddEnv("GITHUB_ACTIONS_RUNNER_EXTRA_USER_AGENT", "actions-job-dispatcher/v0.0.1")
 	j.AddEnv("MTU", "1400")
 	j.AddEnv("DOCKER_HOST", "tcp://localhost:2376")
 	j.AddEnv("DOCKER_TLS_VERIFY", "1")

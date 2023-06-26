@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/axatol/actions-runner-broker/pkg/cache"
-	"github.com/axatol/actions-runner-broker/pkg/config"
-	"github.com/axatol/actions-runner-broker/pkg/util"
+	"github.com/axatol/actions-job-dispatcher/pkg/cache"
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/util"
 	"github.com/rs/zerolog/log"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/axatol/actions-runner-broker/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
 	"github.com/google/go-github/v51/github"
 	"github.com/gregjones/httpcache"
 	"github.com/rs/zerolog/log"

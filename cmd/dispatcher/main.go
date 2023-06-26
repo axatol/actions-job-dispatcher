@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/axatol/actions-runner-broker/pkg/cache"
-	"github.com/axatol/actions-runner-broker/pkg/config"
-	"github.com/axatol/actions-runner-broker/pkg/job"
-	"github.com/axatol/actions-runner-broker/pkg/server"
-	"github.com/google/go-github/v51/github"
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/job"
+	"github.com/axatol/actions-job-dispatcher/pkg/server"
 	"github.com/rs/zerolog/log"
-	"k8s.io/client-go/kubernetes"
 )
 
 func main() {
@@ -29,7 +30,7 @@ func main() {
 
 	serverVersion, err := client.ServerVersion()
 	if err != nil {
-		log.Fatal().Err(err).Msg("could not retrieve server details")
+		log.Fatal().Err(fmt.Errorf("could not retrieve server details: %s", err)).Send()
 	}
 
 	log.Info().
@@ -39,29 +40,20 @@ func main() {
 		Int("sync_interval", config.SyncInterval.Value()).
 		Send()
 
-	router := server.NewRouter()
-	router.Get("/api/health", handle_Health(client))
-	router.Get("/api/runners", handle_ListRunners)
-	router.Get("/api/jobs", handle_ListJobs)
-	router.Post("/api/webhook", handle_GithubWebhook(client))
+	server := server.NewServer()
+	ctx, cancel := context.WithCancel(ctx)
 
-	done := make(chan struct{})
-	go func() {
-		err := server.NewServer(router).ListenAndServe()
+	// listen for interrupt
+	go listenForInterrupt(ctx, cancel, server)
 
-		event := log.Info()
-		if err != http.ErrServerClosed {
-			event = log.Error()
-		}
+	// start the server
+	go startHTTPServer(server)
 
-		event.Err(err).Msg("server exited")
-		done <- struct{}{}
-	}()
+	ticker := time.NewTicker(time.Second * time.Duration(config.SyncInterval.Value()))
 
-	ticker := time.Ticker{}
 	for loop := true; loop; {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			loop = false
 		case <-ticker.C:
 			if err := job.Reconcile(ctx, client); err != nil {
@@ -71,71 +63,40 @@ func main() {
 	}
 }
 
-func handle_Health(client *kubernetes.Clientset) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := client.ServerVersion(); err != nil {
-			server.ResponseErr(err, "could not retrieve server details").Write(w)
-			return
-		}
+func listenForInterrupt(ctx context.Context, cancel context.CancelFunc, server *http.Server) {
+	sig := make(chan os.Signal, 2)
+	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-		server.ResponseOK("").Write(w)
+	// wait for signal
+	<-sig
+	log.Info().Msg("waiting 5 seconds for server to shut down")
+
+	// forcefully shut down if server is taking too long
+	ctx, cancelTimeout := context.WithTimeout(ctx, 5*time.Second)
+	go func() {
+		<-ctx.Done()
+
+		if err := ctx.Err(); err == context.DeadlineExceeded {
+			log.Fatal().Err(err).Msg("graceful shutdown timed out... forcing exit")
+		}
+	}()
+
+	// forcefully shut down if second signal received
+	go func() {
+		<-sig
+		log.Fatal().Msg("forcefully shutting down")
+	}()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal().Err(err).Msg("failed to shut down server")
 	}
+
+	cancelTimeout()
+	cancel()
 }
 
-func handle_ListRunners(w http.ResponseWriter, r *http.Request) {
-	resp := server.ResponseOK("")
-	resp.Data = config.Runners
-	resp.Write(w)
-}
-
-func handle_ListJobs(w http.ResponseWriter, r *http.Request) {
-	resp := server.ResponseOK("")
-	resp.Data = cache.List()
-	resp.Write(w)
-}
-
-func handle_GithubWebhook(client *kubernetes.Clientset) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		webhookType := github.WebHookType(r)
-		log := log.With().
-			Str("github_webhook_type", webhookType).
-			Str("github_delivery_id", github.DeliveryID(r)).
-			Str("github_hook_id", r.Header.Get("X-GitHub-Hook-ID")).
-			Logger()
-
-		payload, err := github.ValidatePayload(r, []byte{})
-		if err != nil {
-			server.ResponseErr(err, "received invalid payload").Write(w, log)
-			return
-		}
-
-		event, err := github.ParseWebHook(webhookType, payload)
-		if err != nil {
-			server.ResponseErr(err, "could not parse webhook").Write(w, log)
-			return
-		}
-
-		switch e := event.(type) {
-		case *github.PingEvent:
-			log.Info().Msg("responding to ping")
-			// wants a raw "pong"
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("pong"))
-			return
-
-		case *github.WorkflowJobEvent:
-			log.Info().Msg("handling workflow job webhook")
-			if cache.CacheWorkflowJobEvent(e) {
-				if err := job.DispatchByEvent(r.Context(), client, e); err != nil {
-					server.ResponseErr(err, "failed to dispatch job").Write(w, log)
-					return
-				}
-			}
-
-		default:
-			log.Info().Str("event_type", webhookType).Msg("ignoring webhook")
-			server.ResponseOK("")
-			return
-		}
+func startHTTPServer(server *http.Server) {
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal().Err(err).Msg("server closed unexpectedly")
 	}
 }
