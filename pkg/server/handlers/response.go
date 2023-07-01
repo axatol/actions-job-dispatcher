@@ -15,6 +15,26 @@ type Response[T any] struct {
 	Error   error  `json:"-"`
 }
 
+func (r *Response[T]) SetStatus(status int) *Response[T] {
+	r.Status = status
+	return r
+}
+
+func (r *Response[T]) SetMessage(message string) *Response[T] {
+	r.Message = message
+	return r
+}
+
+func (r *Response[T]) SetData(data T) *Response[T] {
+	r.Data = data
+	return r
+}
+
+func (r *Response[T]) SetError(err error) *Response[T] {
+	r.Error = err
+	return r
+}
+
 func (r *Response[T]) Write(w http.ResponseWriter, logger ...zerolog.Logger) {
 	log := log.Logger
 	if len(logger) == 1 {
@@ -54,25 +74,17 @@ func (r *Response[T]) Write(w http.ResponseWriter, logger ...zerolog.Logger) {
 	}
 }
 
-func ResponseOK(message string) *Response[any] {
+func ResponseOK() *Response[any] {
+	return &Response[any]{Status: http.StatusOK}
+}
+
+func ResponseErr(err error) *Response[any] {
 	return &Response[any]{
-		Status:  http.StatusOK,
-		Message: message,
+		Status: http.StatusInternalServerError,
+		Error:  err,
 	}
 }
 
-func ResponseErr(err error, message string) *Response[any] {
-	return &Response[any]{
-		Status:  http.StatusInternalServerError,
-		Message: message,
-		Error:   err,
-	}
-}
-
-func ResponseBadReq(err error, message string) *Response[any] {
-	return &Response[any]{
-		Status:  http.StatusBadRequest,
-		Message: message,
-		Error:   err,
-	}
+func ResponseBadReq() *Response[any] {
+	return &Response[any]{Status: http.StatusBadRequest}
 }

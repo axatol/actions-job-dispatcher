@@ -4,100 +4,77 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
 var (
 	// global
 
-	ConfigFile string
-	DryRun     = BoolFlagValue{defaultValue: false}
-	logLevel   = StringFlagValue{defaultValue: zerolog.InfoLevel.String(), validate: validateLogLevel}
-	logFormat  = StringFlagValue{defaultValue: LogFormatJSON, validate: validateLogFormat}
+	configFile string
+	DryRun     bool
+	logLevel   logLevelValue
+	logFormat  logFormatValue
+
+	// server
+
+	ServerPort int64
 
 	// github
 
-	GithubToken             StringFlagValue
-	GithubAppID             Int64FlagValue
-	GithubAppInstallationID Int64FlagValue
-	GithubAppPrivateKey     StringFlagValue
+	Github GithubConfig
 
 	// kubernetes
 
-	kubeConfig  StringFlagValue
-	kubeContext StringFlagValue
-	Namespace   StringFlagValue
+	KubeConfig  string
+	KubeContext string
+	Namespace   string
 
 	// reconciler
 
-	SyncInterval = IntFlagValue{defaultValue: 30, validate: validateSyncInterval}
+	SyncInterval time.Duration
+	Runners      RunnerConfigList
 )
 
 func LoadConfig() {
-	// global
+	fs := flagSet{flag.CommandLine}
+	fs.StringVar(&configFile, "config", "", "path to config")
+	fs.BoolVar(&DryRun, "dry-run", false, "dry run")
+	fs.Var(&logLevel, "log-level", "log level")
+	fs.Var(&logFormat, "log-format", "log format")
+	fs.Int64Var(&ServerPort, "server-port", 8000, "server port")
+	fs.StringVar(&Github.Token, "github-token", Github.Token, "github token")
+	fs.Int64Var(&Github.AppID, "github-app-id", Github.AppID, "github app id")
+	fs.Int64Var(&Github.AppInstallationID, "github-app-installation-id", Github.AppInstallationID, "github app installation id")
+	fs.StringVar(&Github.AppPrivateKey, "github-app-private-key", Github.AppPrivateKey, "github app private key")
+	fs.StringVar(&KubeConfig, "kube-config", KubeConfig, "path to the kubeconfig file")
+	fs.StringVar(&KubeContext, "kube-context", KubeContext, "specific a kubernetes context")
+	fs.StringVar(&Namespace, "namespace", Namespace, "specify a kubernetes namespace")
+	fs.DurationVar(&SyncInterval, "sync-interval", SyncInterval, "sync interval")
 
-	flag.StringVar(&ConfigFile, "config-file", "", "path to config")
-	flag.Var(&logLevel, "log-level", "logging level")
-	flag.Var(&logFormat, "log-format", `log format, one of: "text", "json"`)
-	flag.Var(&DryRun, "dry-run", "disables job creation")
-
-	// github
-
-	flag.Var(&GithubToken, "github-token", "github token")
-	flag.Var(&GithubAppID, "github-app-id", "github app id")
-	flag.Var(&GithubAppInstallationID, "github-app-installation-id", "github app installation id")
-	flag.Var(&GithubAppPrivateKey, "github-app-private-key", "github app private key")
-
-	// kubernetes
-
-	flag.Var(&kubeConfig, "kube-config", "path to the kubeconfig file")
-	flag.Var(&kubeContext, "kube-context", "specify a kubernetes context")
-	flag.Var(&Namespace, "namespace", "specify a kubernetes namespace")
-
-	// dispatcher
-
-	flag.Var(&SyncInterval, "sync-interval", "seconds between reconciliation attempts (minimum 30s)")
-
+	// flags first priority
 	flag.Parse()
+
 	godotenv.Load()
+	fs.ProcessUnset()
 
-	loadConfigFromEnv()
+	// config file lowest priority
 	loadConfigFromFile()
-	configureLogger()
-}
 
-func loadConfigFromEnv() {
-	// global
-	maybeSetEnv("LOG_LEVEL", &logLevel)
-	maybeSetEnv("LOG_FORMAT", &logFormat)
-	maybeSetEnv("DRY_RUN", &DryRun)
-
-	// github
-	maybeSetEnv("GITHUB_TOKEN", &GithubToken)
-	maybeSetEnv("GITHUB_APP_ID", &GithubAppID)
-	maybeSetEnv("GITHUB_APP_INSTALLATION_ID", &GithubAppInstallationID)
-	maybeSetEnv("GITHUB_APP_PRIVATE_KEY", &GithubAppPrivateKey)
-
-	// kubernetes
-	maybeSetEnv("KUBE_CONFIG", &kubeConfig)
-	maybeSetEnv("KUBE_CONTEXT", &kubeContext)
-	maybeSetEnv("NAMESPACE", &Namespace)
-
-	// dispatcher
-	maybeSetEnv("SYNC_INTERVAL", &SyncInterval)
+	zerolog.SetGlobalLevel(zerolog.Level(logLevel))
+	if logFormat == logFormatValue(textLogFormat) {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
+	}
 }
 
 func loadConfigFromFile() {
-	filenames := []string{ConfigFile, "./config.yaml"}
+	filenames := []string{configFile, "./config.yaml"}
 
 	for _, filename := range filenames {
-		if len(Runners) > 0 {
-			return
-		}
-
 		if filename == "" {
 			continue
 		}
@@ -108,58 +85,31 @@ func loadConfigFromFile() {
 
 		raw, err := os.ReadFile(filename)
 		if err != nil {
-			panic(fmt.Errorf("could not read config file: %s", err))
+			panic(fmt.Errorf("could not read config file at %s: %s", filename, err))
 		}
 
+		// config you want to load from a file
 		var cfg struct {
-			// global
-
-			LogLevel  *string `yaml:"log_level"`
-			LogFormat *string `yaml:"log_format"`
-			DryRun    *string `yaml:"dry_run"`
-
-			// github
-			GithubToken             *string `yaml:"github_token"`
-			GithubAppID             *string `yaml:"github_app_id"`
-			GithubAppInstallationID *string `yaml:"github_app_installation_id"`
-			GithubAppPrivateKey     *string `yaml:"github_app_private_key"`
-
-			// kubernetes
-
-			KubeConfig  *string `yaml:"kube_config"`
-			KubeContext *string `yaml:"kube_context"`
-			Namespace   *string `yaml:"namespace"`
-
-			// dispatcher
-
-			SyncInterval *string        `yaml:"sync_interval"`
-			Runners      []RunnerConfig `yaml:"runners"`
+			Github  GithubConfig   `yaml:"github"`
+			Runners []RunnerConfig `yaml:"runners"`
 		}
 
 		if err := yaml.Unmarshal(raw, &cfg); err != nil {
 			panic(fmt.Errorf("could not parse config file: %s", err))
 		}
 
-		logLevel.MaybeSet(cfg.LogLevel)
-		logFormat.MaybeSet(cfg.LogFormat)
-		DryRun.MaybeSet(cfg.DryRun)
-
-		GithubToken.MaybeSet(cfg.GithubToken)
-		GithubAppID.MaybeSet(cfg.GithubAppID)
-		GithubAppInstallationID.MaybeSet(cfg.GithubAppInstallationID)
-		GithubAppPrivateKey.MaybeSet(cfg.GithubAppPrivateKey)
-
-		kubeConfig.MaybeSet(cfg.KubeConfig)
-		kubeContext.MaybeSet(cfg.KubeContext)
-		Namespace.MaybeSet(cfg.Namespace)
-
-		SyncInterval.MaybeSet(cfg.SyncInterval)
+		// check if set from cli
+		if err := Github.Validate(); err != nil {
+			// if not, set from config
+			Github = cfg.Github
+			if err := Github.Validate(); err != nil {
+				panic(fmt.Errorf("failed to validate github: %s", err))
+			}
+		}
 
 		Runners = cfg.Runners
-		for i, runner := range Runners {
-			if err := runner.Validate(); err != nil {
-				panic(fmt.Errorf("failed to validate runner %d: %s", i, err))
-			}
+		if err := Runners.Validate(); err != nil {
+			panic(fmt.Errorf("failed to validate runners: %s", err))
 		}
 	}
 }

@@ -9,16 +9,6 @@ import (
 
 var cache map[int64]WorkflowJobMeta
 
-type WorkflowJobMeta struct {
-	JobID     int64     `json:"job_id"`
-	RunID     int64     `json:"run_id"`
-	Name      string    `json:"name"`
-	Labels    []string  `json:"runner_labels"`
-	URL       string    `json:"url"`
-	CreatedAt time.Time `json:"queued_at"`
-	StartedAt time.Time `json:"in_progress_at"`
-}
-
 func List() []WorkflowJobMeta {
 	results := []WorkflowJobMeta{}
 	for _, meta := range cache {
@@ -33,7 +23,7 @@ func Set(meta WorkflowJobMeta) WorkflowJobMeta {
 		cache = map[int64]WorkflowJobMeta{}
 	}
 
-	cache[meta.JobID] = meta
+	cache[meta.WorkflowJobID] = meta
 	return meta
 }
 
@@ -49,38 +39,31 @@ func Del(id int64) {
 	delete(cache, id)
 }
 
-func CacheWorkflowJobEvent(event *github.WorkflowJobEvent) bool {
-	meta := Get(event.WorkflowJob.GetID())
+func CacheWorkflowJobEvent(event *github.WorkflowJobEvent) *WorkflowJobMeta {
+	meta := Get(event.GetWorkflowJob().GetID())
 	if meta == nil {
-		meta = &WorkflowJobMeta{
-			JobID:  event.WorkflowJob.GetID(),
-			RunID:  event.WorkflowJob.GetRunID(),
-			Labels: event.WorkflowJob.Labels,
-			URL:    event.WorkflowJob.GetHTMLURL(),
-		}
+		meta = WorkflowJobMetaFromEvent(event)
 	}
 
-	status := event.WorkflowJob.GetStatus()
+	status := event.GetWorkflowJob().GetStatus()
 	switch status {
 	case "in_progress":
 		meta.StartedAt = time.Now()
 		Set(*meta)
-		return true
 
 	case "queued":
 		meta.CreatedAt = time.Now()
 		Set(*meta)
-		return true
 
 	case "completed":
-		Del(meta.JobID)
-		return false
+		Del(meta.WorkflowJobID)
 
 	default:
 		log.Warn().
 			Str("status", status).
 			Interface("meta", meta).
 			Msg("unhandled workflow job status")
-		return false
 	}
+
+	return meta
 }

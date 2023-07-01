@@ -13,7 +13,7 @@ func NewServer() *http.Server {
 
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
-	router.Use(middleware.Logger)
+	router.Use(middleware_Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.AllowContentType("application/json", "text/json"))
 

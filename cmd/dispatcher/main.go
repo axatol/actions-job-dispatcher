@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/axatol/actions-job-dispatcher/pkg/config"
-	"github.com/axatol/actions-job-dispatcher/pkg/job"
+	"github.com/axatol/actions-job-dispatcher/pkg/controller"
+	"github.com/axatol/actions-job-dispatcher/pkg/k8s"
 	"github.com/axatol/actions-job-dispatcher/pkg/server"
 	"github.com/rs/zerolog/log"
 )
@@ -19,26 +20,10 @@ func main() {
 	ctx := context.Background()
 	config.LoadConfig()
 
-	if len(config.Runners) < 1 {
-		log.Fatal().Msg("no runners configured")
-	}
-
-	client, err := config.KubeClient()
-	if err != nil {
-		log.Fatal().Err(err).Send()
-	}
-
-	serverVersion, err := client.ServerVersion()
+	serverVersion, err := k8s.Version()
 	if err != nil {
 		log.Fatal().Err(fmt.Errorf("could not retrieve server details: %s", err)).Send()
 	}
-
-	log.Info().
-		Str("kubernetes_server", serverVersion.GitVersion).
-		Strs("serving_runner_labels", config.Runners.Strs()).
-		Bool("dry_run", config.DryRun.Value()).
-		Int("sync_interval", config.SyncInterval.Value()).
-		Send()
 
 	server := server.NewServer()
 	ctx, cancel := context.WithCancel(ctx)
@@ -49,15 +34,29 @@ func main() {
 	// start the server
 	go startHTTPServer(server)
 
-	ticker := time.NewTicker(time.Second * time.Duration(config.SyncInterval.Value()))
+	log.Info().
+		Bool("dry_run", config.DryRun).
+		Str("log_level", log.Logger.GetLevel().String()).
+		Str("kubernetes_context", config.KubeContext).
+		Str("kubernetes_namespace", config.Namespace).
+		Str("kubernetes_server", serverVersion.GitVersion).
+		Strs("serving_runner_labels", config.Runners.Strs()).
+		Dur("sync_interval", config.SyncInterval).
+		Msgf("server started at http://localhost:%d", config.ServerPort)
 
+	// first time reconcile
+	if err := controller.Reconcile(ctx); err != nil {
+		log.Fatal().Err(err).Msg("could not reconcile")
+	}
+
+	ticker := time.NewTicker(config.SyncInterval)
 	for loop := true; loop; {
 		select {
 		case <-ctx.Done():
 			loop = false
 		case <-ticker.C:
-			if err := job.Reconcile(ctx, client); err != nil {
-				log.Error().Err(err).Msg("could not reconcile")
+			if err := controller.Reconcile(ctx); err != nil {
+				log.Fatal().Err(err).Msg("could not reconcile")
 			}
 		}
 	}

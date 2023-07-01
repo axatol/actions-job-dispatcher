@@ -4,15 +4,24 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/go-github/v51/github"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-var (
-	Runners RunnerConfigList
-)
-
 type RunnerConfigList []RunnerConfig
+
+func (rcl RunnerConfigList) Validate() error {
+	if len(rcl) < 1 {
+		return fmt.Errorf("no runners configured")
+	}
+
+	for _, runner := range rcl {
+		if err := runner.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 func (rcl RunnerConfigList) Strs() []string {
 	results := []string{}
@@ -26,8 +35,8 @@ func (rcl RunnerConfigList) Strs() []string {
 type RunnerConfig struct {
 	// github
 
-	Labels RunnerLabels `yaml:"labels" json:"labels,omitempty"`
-	Scope  RunnerScope  `yaml:"scope"  json:"scope,omitempty"`
+	Labels Labels `yaml:"labels" json:"labels,omitempty"`
+	Scope  Scope  `yaml:"scope"  json:"scope,omitempty"`
 
 	// scheduler
 
@@ -69,13 +78,13 @@ func (c RunnerConfig) Validate() error {
 	return nil
 }
 
-type RunnerLabels []string
+type Labels []string
 
-func (rl RunnerLabels) String() string {
+func (rl Labels) String() string {
 	return strings.Join(rl, ",")
 }
 
-func (rl RunnerLabels) Validate() error {
+func (rl Labels) Validate() error {
 	if rl == nil || len(rl) < 1 {
 		return fmt.Errorf("field required: labels")
 	}
@@ -83,7 +92,7 @@ func (rl RunnerLabels) Validate() error {
 	return nil
 }
 
-func (rl RunnerLabels) Has(search string) bool {
+func (rl Labels) Has(search string) bool {
 	for _, label := range rl {
 		if search == label {
 			return true
@@ -91,67 +100,6 @@ func (rl RunnerLabels) Has(search string) bool {
 	}
 
 	return false
-}
-
-type RunnerScope struct {
-	Organisation string `yaml:"organisation" json:"organisation,omitempty"`
-	Repository   string `yaml:"repository"   json:"repository,omitempty"`
-}
-
-func (rs RunnerScope) String() string {
-	if rs.Organisation != "" {
-		return rs.Organisation
-	}
-
-	return rs.Repository
-}
-
-func (rs RunnerScope) IsOrg() bool {
-	return rs.Organisation != ""
-}
-
-func (rs RunnerScope) IsRepo() bool {
-	return rs.Repository != ""
-}
-
-func (rs RunnerScope) GetRepo() (string, string, bool) {
-	return strings.Cut(rs.Repository, "/")
-}
-
-func (rs RunnerScope) Validate() error {
-	fields := []string{}
-
-	if rs.Organisation != "" {
-		fields = append(fields, rs.Organisation)
-	}
-
-	if rs.Repository != "" {
-		fields = append(fields, rs.Repository)
-	}
-
-	if len(fields) != 1 {
-		return fmt.Errorf(`must specify exactly one of "enterprise", "organisation", or "repository`)
-	}
-
-	return nil
-}
-
-func RunnerScopeFromWorkflowJobEvent(e *github.WorkflowJobEvent) (*RunnerScope, error) {
-	scope := RunnerScope{}
-
-	if org := e.GetOrg(); org != nil {
-		scope.Organisation = *org.Login
-	}
-
-	if repo := e.GetRepo(); repo != nil {
-		scope.Repository = *repo.FullName
-	}
-
-	if err := scope.Validate(); err != nil {
-		return nil, err
-	}
-
-	return &scope, nil
 }
 
 type RunnerResources struct {

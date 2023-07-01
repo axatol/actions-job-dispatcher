@@ -1,9 +1,11 @@
-package job
+package k8s
 
 import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/axatol/actions-job-dispatcher/pkg/config"
@@ -12,61 +14,67 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 var (
-	jobSelectorKey   = "app.kubernetes.io/managed-by"
-	jobSelectorValue = "actions-job-dispatcher"
-	runnerLabelKey   = "actions-job-dispatcher/runner-label"
+	JobSelectorKey   = "app.kubernetes.io/managed-by"
+	JobSelectorValue = "actions-job-dispatcher"
+	JobSelector      = labels.Set(map[string]string{"app.kubernetes.io/managed-by": "actions-job-dispatcher"})
 )
 
 type Job struct {
-	runner      config.RunnerConfig
-	env         EnvMap
-	annotations PrefixMap
-	labels      PrefixMap
+	Runner      config.RunnerConfig
+	Env         EnvMap
+	Annotations PrefixMap
+	Labels      PrefixMap
 }
 
 func (j Job) Hash() string {
 	hasher := sha1.New()
-	hasher.Write([]byte(j.runner.Labels.String()))
+	hasher.Write([]byte(j.Runner.Labels.String()))
 	hasher.Write([]byte(fmt.Sprint(time.Now().Unix())))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func (j Job) AddLabel(key, value string) {
-	if j.labels == nil {
-		j.labels = PrefixMap{}
+	if j.Labels == nil {
+		j.Labels = PrefixMap{}
 	}
 
-	j.labels.Add(key, value)
+	j.Labels.Add(key, value)
 }
 
 func (j Job) AddAnnotation(key, value string) {
-	if j.annotations == nil {
-		j.annotations = PrefixMap{}
+	if j.Annotations == nil {
+		j.Annotations = PrefixMap{}
 	}
 
-	j.annotations.Add(key, value)
+	j.Annotations.Add(key, value)
 }
 
 func (j Job) AddEnv(key, value string) {
-	if j.env == nil {
-		j.env = EnvMap{}
+	if j.Env == nil {
+		j.Env = EnvMap{}
 	}
 
-	j.env[key] = value
+	j.Env[key] = value
 }
 
-// note: need to include env var "RUNNER_TOKEN" for the runner to authenticate
+// note: need to include env vars "RUNNER_TOKEN" with a registration token
 func (j Job) Build() batchv1.Job {
-	name := fmt.Sprintf("runner-%s-%s", j.runner.Slug(), j.Hash()[:8])
+	name := fmt.Sprintf("runner-%s-%s", j.Runner.Slug(), j.Hash()[:8])
 
-	j.AddLabel("runner-labels", j.runner.Labels.String())
+	// labels
+	j.AddLabel("runner-labels", j.Runner.Labels.String())
+	j.AddLabel("is-org", strconv.FormatBool(j.Runner.Scope.IsOrg))
+	j.AddLabel("scope", j.Runner.Scope.String())
+	j.AddLabel("runner-labels", strings.Join(j.Runner.Labels, ","))
 
+	// environment variables
 	j.AddEnv("RUNNER_NAME", name)
 	j.AddEnv("DISABLE_RUNNER_UPDATE", "true")
-	j.AddEnv("RUNNER_LABELS", j.runner.Labels.String())
+	j.AddEnv("RUNNER_LABELS", j.Runner.Labels.String())
 	j.AddEnv("DOCKER_ENABLED", "true")
 	j.AddEnv("DOCKERD_IN_RUNNER", "true")
 	j.AddEnv("GITHUB_URL", "https://github.com/")
@@ -79,19 +87,17 @@ func (j Job) Build() batchv1.Job {
 	j.AddEnv("DOCKER_TLS_VERIFY", "1")
 	j.AddEnv("DOCKER_CERT_PATH", "/certs/client")
 
-	if j.runner.Scope.IsOrg() {
-		j.AddEnv("RUNNER_ORG", j.runner.Scope.Organisation)
-	}
-
-	if j.runner.Scope.IsRepo() {
-		j.AddEnv("RUNNER_REPO", j.runner.Scope.Repository)
+	if j.Runner.Scope.IsOrg {
+		j.AddEnv("RUNNER_ORG", j.Runner.Scope.String())
+	} else {
+		j.AddEnv("RUNNER_REPO", j.Runner.Scope.String())
 	}
 
 	return batchv1.Job{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
-			Namespace: config.Namespace.Value(),
-			Labels:    j.labels,
+			Namespace: config.Namespace,
+			Labels:    j.Labels,
 		},
 
 		Spec: batchv1.JobSpec{
@@ -111,7 +117,7 @@ func (j Job) Build() batchv1.Job {
 					// Tolerations: []corev1.Toleration{},
 					// SchedulingGates: []corev1.PodSchedulingGate{},
 
-					ServiceAccountName: j.runner.ServiceAccountName,
+					ServiceAccountName: j.Runner.ServiceAccountName,
 					PreemptionPolicy:   util.Ptr(corev1.PreemptNever),
 					RestartPolicy:      corev1.RestartPolicyNever,
 
@@ -121,13 +127,13 @@ func (j Job) Build() batchv1.Job {
 
 					Containers: []corev1.Container{{
 						Name:            "runner",
-						Image:           j.runner.Image,
+						Image:           j.Runner.Image,
 						ImagePullPolicy: corev1.PullAlways,
 
 						Resources: corev1.ResourceRequirements{
 							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    resource.MustParse(j.runner.Resources.CPULimit),
-								corev1.ResourceMemory: resource.MustParse(j.runner.Resources.MemoryLimit),
+								corev1.ResourceCPU:    resource.MustParse(j.Runner.Resources.CPULimit),
+								corev1.ResourceMemory: resource.MustParse(j.Runner.Resources.MemoryLimit),
 							},
 						},
 
@@ -135,7 +141,7 @@ func (j Job) Build() batchv1.Job {
 						// ReadinessProbe: ,
 						// StartupProbe: ,
 
-						Env: j.env.EnvVarList(),
+						Env: j.Env.EnvVarList(),
 
 						EnvFrom: []corev1.EnvFromSource{{
 							ConfigMapRef: &corev1.ConfigMapEnvSource{
@@ -163,9 +169,9 @@ func (j Job) Build() batchv1.Job {
 
 func NewRunnerJob(runner config.RunnerConfig) Job {
 	return Job{
-		runner:      runner,
-		env:         EnvMap{},
-		labels:      PrefixMap{},
-		annotations: PrefixMap{},
+		Runner:      runner,
+		Env:         EnvMap{},
+		Labels:      PrefixMap{},
+		Annotations: PrefixMap{},
 	}
 }

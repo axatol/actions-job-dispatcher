@@ -1,22 +1,15 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/axatol/actions-job-dispatcher/pkg/cache"
-	"github.com/axatol/actions-job-dispatcher/pkg/config"
-	"github.com/axatol/actions-job-dispatcher/pkg/job"
+	"github.com/axatol/actions-job-dispatcher/pkg/controller"
 	"github.com/google/go-github/v51/github"
 	"github.com/rs/zerolog/log"
 )
 
 func ReceiveGithubWebhook(w http.ResponseWriter, r *http.Request) {
-	client := config.KubeClientFromContext(r.Context())
-	if client == nil {
-		ResponseErr(fmt.Errorf("no kubernetes client in context"), "")
-	}
-
 	webhookType := github.WebHookType(r)
 	log := log.With().
 		Str("github_webhook_type", webhookType).
@@ -26,13 +19,13 @@ func ReceiveGithubWebhook(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := github.ValidatePayload(r, []byte{})
 	if err != nil {
-		ResponseErr(err, "received invalid payload").Write(w, log)
+		ResponseErr(err).SetMessage("received invalid payload").Write(w, log)
 		return
 	}
 
 	event, err := github.ParseWebHook(webhookType, payload)
 	if err != nil {
-		ResponseErr(err, "could not parse webhook").Write(w, log)
+		ResponseErr(err).SetMessage("could not parse webhook").Write(w, log)
 		return
 	}
 
@@ -45,7 +38,7 @@ func ReceiveGithubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case *github.WorkflowJobEvent:
-		log.Info().
+		log := log.With().
 			Str("job_status", e.GetWorkflowJob().GetStatus()).
 			Str("job_conclusion", e.GetWorkflowJob().GetConclusion()).
 			Int("job_id", int(e.GetWorkflowJob().GetID())).
@@ -54,19 +47,28 @@ func ReceiveGithubWebhook(w http.ResponseWriter, r *http.Request) {
 			Str("html_url", e.GetWorkflowJob().GetHTMLURL()).
 			Str("workflow_name", e.GetWorkflowJob().GetWorkflowName()).
 			Str("job_name", e.GetWorkflowJob().GetName()).
-			Msg("handling workflow job webhook")
+			Strs("workflow_job_labels", e.GetWorkflowJob().Labels).
+			Logger()
+			//Msg("handling workflow job webhook")
+
+		runner, err := controller.SelectRunner(e)
+		if err != nil {
+			log.Debug().Msgf("ignoring workflow_job webhook: %s", err)
+			ResponseOK().Write(w)
+			return
+		}
 
 		cache.CacheWorkflowJobEvent(e)
 		if e.GetAction() == "queued" {
-			if err := job.DispatchByEvent(r.Context(), client, e); err != nil {
-				ResponseErr(err, "failed to dispatch job").Write(w, log)
+			if err := controller.Dispatch(r.Context(), *runner); err != nil {
+				ResponseErr(err).SetMessage("failed to dispatch job").Write(w, log)
 				return
 			}
 		}
 
 	default:
 		log.Info().Str("event_type", webhookType).Msg("ignoring webhook")
-		ResponseOK("")
+		ResponseOK().Write(w)
 		return
 	}
 }
