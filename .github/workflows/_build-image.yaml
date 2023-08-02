@@ -4,7 +4,7 @@ on:
       AWS_ECR_IMAGE_PUBLISHER_ROLE_ARN:
 
 env:
-  image: public.ecr.aws/axatol/actions-job-dispatcher-dispatcher
+  image: public.ecr.aws/axatol/actions-job-dispatcher
 
 permissions:
   id-token: write
