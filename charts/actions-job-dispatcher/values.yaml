@@ -2,31 +2,39 @@ image: public.ecr.aws/axatol/actions-job-dispatcher:latest
 
 github:
   authSecret:
-    create: false
+    create: true
+    # name: {{ .Release.Name }}-github-credentials
     # token:
     # appId:
     # appInstallationId:
     # appPrivateKey:
+    # appPrivateKeyFile:
 
 dispatcher:
-  logFormat: json
-  logLevel: info
-  syncInterval: 30
-  runners: []
-  # configMapName:
+  logFormat: json # or text
+  logLevel: info # or debug
+  syncInterval: 5m
+
+  config:
+    create: true
+    # name: {{ .Release.Name }}-config
+    runners: []
+
   # dataVolume:
   #   ephemeral: {}
 
 rbac:
-  create: false
-  # serviceAccountName:
+  create: true
+  # serviceAccountName: {{ .Release.Name }}
 
 service:
-  enabled: false
-  exposedPort: 8000
+  create: true
+  # name: {{ .Release.Name }}
+  internalPort: 8000
+  externalPort: 8000
 
 ingress:
-  enabled: false
+  create: false
   annotations: {}
   hosts: []
   tls: {}
