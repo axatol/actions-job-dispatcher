@@ -12,6 +12,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	defaultDryRun       = false
+	defaultServerPort   = 8000
+	defaultNamespace    = "actions-runners"
+	defaultSyncInterval = time.Minute * 5
+)
+
 var (
 	// global
 
@@ -43,24 +50,24 @@ var (
 func LoadConfig() {
 	fs := flagSet{flag.CommandLine}
 	fs.StringVar(&configFile, "config", "", "path to config")
-	fs.BoolVar(&DryRun, "dry-run", false, "dry run")
+	fs.BoolVar(&DryRun, "dry-run", defaultDryRun, "dry run")
 	fs.Var(&logLevel, "log-level", "log level")
 	fs.Var(&logFormat, "log-format", "log format")
-	fs.Int64Var(&ServerPort, "server-port", 8000, "server port")
-	fs.StringVar(&Github.Token, "github-token", Github.Token, "github token")
-	fs.Int64Var(&Github.AppID, "github-app-id", Github.AppID, "github app id")
-	fs.Int64Var(&Github.AppInstallationID, "github-app-installation-id", Github.AppInstallationID, "github app installation id")
-	fs.StringVar(&Github.AppPrivateKey, "github-app-private-key", Github.AppPrivateKey, "github app private key")
+	fs.Int64Var(&ServerPort, "server-port", defaultServerPort, "server port")
+	fs.StringVar(&Github.Token, "github-token", "", "github token")
+	fs.Int64Var(&Github.AppID, "github-app-id", 0, "github app id")
+	fs.Int64Var(&Github.AppInstallationID, "github-app-installation-id", 0, "github app installation id")
+	fs.StringVar(&Github.AppPrivateKey, "github-app-private-key", "", "github app private key")
 	fs.StringVar(&KubeConfig, "kube-config", KubeConfig, "path to the kubeconfig file")
 	fs.StringVar(&KubeContext, "kube-context", KubeContext, "specific a kubernetes context")
-	fs.StringVar(&Namespace, "namespace", Namespace, "specify a kubernetes namespace")
-	fs.DurationVar(&SyncInterval, "sync-interval", SyncInterval, "sync interval")
+	fs.StringVar(&Namespace, "namespace", defaultNamespace, "specify a kubernetes namespace")
+	fs.DurationVar(&SyncInterval, "sync-interval", defaultSyncInterval, "sync interval")
 
 	// flags first priority
 	flag.Parse()
 
 	godotenv.Load()
-	fs.ProcessUnset()
+	fs.LoadUnsetFromEnv()
 
 	// config file lowest priority
 	loadConfigFromFile()
@@ -95,7 +102,7 @@ func loadConfigFromFile() {
 		}
 
 		if err := yaml.Unmarshal(raw, &cfg); err != nil {
-			panic(fmt.Errorf("could not parse config file: %s", err))
+			panic(fmt.Errorf("could not parse config file at %s: %s", filename, err))
 		}
 
 		// check if set from cli

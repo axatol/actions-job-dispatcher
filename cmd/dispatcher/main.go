@@ -4,15 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/axatol/actions-job-dispatcher/pkg/config"
-	"github.com/axatol/actions-job-dispatcher/pkg/controller"
 	"github.com/axatol/actions-job-dispatcher/pkg/k8s"
 	"github.com/axatol/actions-job-dispatcher/pkg/server"
+	"github.com/axatol/actions-job-dispatcher/pkg/util"
 	"github.com/rs/zerolog/log"
 )
 
@@ -29,13 +26,23 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 
 	// listen for interrupt
-	go listenForInterrupt(ctx, cancel, server)
+	go util.ListenForInterrupt(ctx, cancel, func(ctx context.Context) {
+		if err := server.Shutdown(ctx); err != nil {
+			log.Error().Err(err).Msg("failed to shut down server")
+		}
+	})
 
 	// start the server
-	go startHTTPServer(server)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error().Err(err).Msg("server closed unexpectedly")
+		}
+	}()
 
 	log.Info().
 		Bool("dry_run", config.DryRun).
+		Bool("github_token_auth", config.Github.IsToken()).
+		Bool("github_app_auth", config.Github.IsApp()).
 		Str("log_level", log.Logger.GetLevel().String()).
 		Str("kubernetes_context", config.KubeContext).
 		Str("kubernetes_namespace", config.Namespace).
@@ -44,10 +51,10 @@ func main() {
 		Dur("sync_interval", config.SyncInterval).
 		Msgf("server started at http://localhost:%d", config.ServerPort)
 
-	// first time reconcile
-	if err := controller.Reconcile(ctx); err != nil {
-		log.Fatal().Err(err).Msg("could not reconcile")
-	}
+	// TODO first time reconcile
+	// if err := controller.Reconcile(ctx); err != nil {
+	// 	log.Fatal().Err(err).Msg("could not reconcile")
+	// }
 
 	ticker := time.NewTicker(config.SyncInterval)
 	for loop := true; loop; {
@@ -55,47 +62,14 @@ func main() {
 		case <-ctx.Done():
 			loop = false
 		case <-ticker.C:
-			if err := controller.Reconcile(ctx); err != nil {
-				log.Fatal().Err(err).Msg("could not reconcile")
-			}
+			// TODO regular reconciliation
+			// if err := controller.Reconcile(ctx); err != nil {
+			// 	log.Fatal().Err(err).Msg("could not reconcile")
+			// }
 		}
 	}
-}
 
-func listenForInterrupt(ctx context.Context, cancel context.CancelFunc, server *http.Server) {
-	sig := make(chan os.Signal, 2)
-	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	// wait for signal
-	<-sig
-	log.Info().Msg("waiting 5 seconds for server to shut down")
-
-	// forcefully shut down if server is taking too long
-	ctx, cancelTimeout := context.WithTimeout(ctx, 5*time.Second)
-	go func() {
-		<-ctx.Done()
-
-		if err := ctx.Err(); err == context.DeadlineExceeded {
-			log.Fatal().Err(err).Msg("graceful shutdown timed out... forcing exit")
-		}
-	}()
-
-	// forcefully shut down if second signal received
-	go func() {
-		<-sig
-		log.Fatal().Msg("forcefully shutting down")
-	}()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal().Err(err).Msg("failed to shut down server")
-	}
-
-	cancelTimeout()
-	cancel()
-}
-
-func startHTTPServer(server *http.Server) {
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal().Err(err).Msg("server closed unexpectedly")
+	if err := ctx.Err(); err != nil {
+		log.Error().Err(err).Msg("context cancelled")
 	}
 }

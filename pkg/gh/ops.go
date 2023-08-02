@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/axatol/actions-job-dispatcher/pkg/cache"
 	"github.com/google/go-github/v51/github"
 )
 
@@ -24,7 +25,7 @@ func (c *Client) ListRunners(ctx context.Context) ([]*github.Runner, error) {
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to list runners: %s", err)
+			return nil, fmt.Errorf("failed to list runners for %s: %s", c.scope.String(), err)
 		}
 
 		allRunners = append(allRunners, runners.Runners...)
@@ -39,37 +40,48 @@ func (c *Client) ListRunners(ctx context.Context) ([]*github.Runner, error) {
 }
 
 func (c *Client) DescribeScope(ctx context.Context) (string, error) {
+	var (
+		scope interface{ GetHTMLURL() string }
+		err   error
+	)
+
 	if c.scope.IsOrg {
-		org, _, err := c.client.Organizations.Get(ctx, c.scope.String())
-		if err != nil {
-			return "", fmt.Errorf("failed to get organisation %s: %s", c.scope.String(), err)
-		}
-
-		return org.GetHTMLURL(), nil
+		scope, _, err = c.client.Organizations.Get(ctx, c.scope.String())
 	} else {
-		repo, _, err := c.client.Repositories.Get(ctx, c.scope.Owner, c.scope.Repository)
-		if err != nil {
-			return "", fmt.Errorf("failed to get repository %s: %s", c.scope.String(), err)
-		}
-
-		return repo.GetHTMLURL(), nil
+		scope, _, err = c.client.Repositories.Get(ctx, c.scope.Owner, c.scope.Repository)
 	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to describe scope %s: %s", c.scope.String(), err)
+	}
+
+	return scope.GetHTMLURL(), nil
 }
 
 func (c Client) CreateRegistrationToken(ctx context.Context) (*github.RegistrationToken, error) {
+	var (
+		token *github.RegistrationToken
+		err   error
+	)
+
 	if c.scope.IsOrg {
-		token, _, err := c.client.Actions.CreateOrganizationRegistrationToken(ctx, c.scope.String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create registration token for organisation %s: %s", c.scope.String(), err)
-		}
-
-		return token, nil
+		token, _, err = c.client.Actions.CreateOrganizationRegistrationToken(ctx, c.scope.String())
 	} else {
-		token, _, err := c.client.Actions.CreateRegistrationToken(ctx, c.scope.Owner, c.scope.Repository)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create registration token for repository %s: %s", c.scope.String(), err)
-		}
-
-		return token, nil
+		token, _, err = c.client.Actions.CreateRegistrationToken(ctx, c.scope.Owner, c.scope.Repository)
 	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create registration token for %s: %s", c.scope.String(), err)
+	}
+
+	return token, nil
+}
+
+func (c Client) DescribeWorkflowJob(ctx context.Context, meta *cache.WorkflowJobMeta) (*github.WorkflowJob, error) {
+	job, _, err := c.client.Actions.GetWorkflowJobByID(ctx, meta.Owner, meta.Repository, meta.WorkflowJobID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow job by id for %s: %s", c.scope.String(), err)
+	}
+
+	return job, nil
 }

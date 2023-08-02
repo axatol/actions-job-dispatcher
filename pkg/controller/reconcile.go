@@ -6,6 +6,7 @@ import (
 
 	"github.com/axatol/actions-job-dispatcher/pkg/cache"
 	"github.com/axatol/actions-job-dispatcher/pkg/config"
+	"github.com/axatol/actions-job-dispatcher/pkg/gh"
 	"github.com/axatol/actions-job-dispatcher/pkg/k8s"
 	"github.com/axatol/actions-job-dispatcher/pkg/util"
 	"github.com/rs/zerolog/log"
@@ -47,8 +48,43 @@ func reconcileRunner(ctx context.Context, runner config.RunnerConfig, jobs []bat
 	// queued/in-progress workflow jobs
 	var requestedJobs []cache.WorkflowJobMeta
 	for _, meta := range cache.List() {
-		if meta.StartedAt.After(meta.CreatedAt) && util.NewSet(meta.RunnerLabels...).EqualsStrs(runner.Labels) {
+		// ignore if scope doesn't match
+		if meta.Scope.String() != runner.Scope.String() {
+			continue
+		}
+
+		// ignore if labels don't match
+		if !util.NewSet(meta.RunnerLabels...).EqualsStrs(runner.Labels) {
+			continue
+		}
+
+		// we dispatched a job previously
+		if meta.StartedAt.After(meta.CreatedAt) {
+			continue
+		}
+
+		gh, err := gh.GetClient(ctx, runner.Scope)
+		if err != nil {
+			return fmt.Errorf("failed to get github client for %s: %s", runner.Scope.String(), err)
+		}
+
+		// describe actual job
+		job, err := gh.DescribeWorkflowJob(ctx, &meta)
+		if err != nil {
+			return fmt.Errorf("failed to describe cached job %s: %s", *job.HTMLURL, err)
+		}
+
+		switch job.GetStatus() {
+		case "queued":
+			// a job we should care about
 			requestedJobs = append(requestedJobs, meta)
+
+		case "in_progress":
+			// ignore
+
+		case "completed":
+			// delete if completed (and we somehow missed the webhook)
+			cache.Del(job.GetID())
 		}
 	}
 

@@ -1,12 +1,8 @@
-{{- define "actions-job-dispatcher.dispatcher" -}}
-{{ .Release.Name }}
-{{- end -}}
-
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "actions-job-dispatcher.dispatcher" . }}
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels: {{- include "actions-job-dispatcher.labels" . | nindent 4 }}
 spec:
@@ -16,26 +12,22 @@ spec:
     metadata:
       labels: {{- include "actions-job-dispatcher.selectors" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ get .Values.rbac "serviceAccountName" | default (include "actions-job-dispatcher.dispatcher" .) }}
+      serviceAccountName: {{ include "actions-job-dispatcher.serviceAccountName" . }}
       containers:
         - name: dispatcher
           image: {{ .Values.image }}
-          serviceAccount: {{ include "actions-job-dispatcher.dispatcher" . }}
+          serviceAccount: {{ .Release.Name }}
           args:
             - -config-file
             - /config/config.yaml
-            - -log-format
-            - {{ .Values.dispatcher.logFormat }}
-            - -log-level
-            - {{ .Values.dispatcher.logLevel }}
-          {{- if .Values.github.authSecret.create }}
+            - -namespace
+            - {{ .Release.Namespace }}
           envFrom:
             - secretRef:
-                name: {{ include "actions-job-dispatcher.auth-secret" . }}
-          {{- end }}
-          {{- if or .Values.service.enabled .Values.ingress.enabled }}
+                name: {{ include "actions-job-dispatcher.githubAuthSecretName" . }}
+          {{- if or .Values.service.create .Values.ingress.create }}
           ports:
-            - containerPort: {{ .Values.service.exposedPort }}
+            - containerPort: {{ .Values.service.internalPort }}
           {{- end }}
           volumeMounts:
             - name: config
@@ -43,11 +35,10 @@ spec:
               subPath: config.yaml
       volumes:
         - name: config
-          configMap: {{ get .Values.dispatcher "configMapName" | print .Release.Name "-dispatcher-config" }}
-
+          configMap: {{ include "actions-job-dispatcher.dispatcherConfigName" . }}
         - name: data
-          {{- if get .Values.dispatcher "dataVolume" }}
-          {{- get .Values.dispatcher "dataVolume" | toYaml | nindent 10 }}
+          {{- if .Values.dispatcher.dataVolume }}
+          {{- toYaml .Values.dispatcher.dataVolume | nindent 10 }}
           {{- else }}
           emptyDir: {}
           {{- end }}

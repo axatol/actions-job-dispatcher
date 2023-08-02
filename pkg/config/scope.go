@@ -9,9 +9,9 @@ import (
 type Scope struct {
 	// TODO enterprise?
 
-	IsOrg      bool   `yaml:"is_org"     json:"is_org,omitempty"`
-	Owner      string `yaml:"owner"      json:"owner,omitempty"`
-	Repository string `yaml:"repository" json:"repository,omitempty"`
+	IsOrg      bool   `yaml:"is_org"     json:"is_org"`
+	Owner      string `yaml:"owner"      json:"owner"`
+	Repository string `yaml:"repository" json:"repository"`
 }
 
 func (rs Scope) String() string {

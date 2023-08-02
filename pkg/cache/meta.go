@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/axatol/actions-job-dispatcher/pkg/config"
 	"github.com/google/go-github/v51/github"
 )
 
 type WorkflowJobMeta struct {
-	Organisation    string    `json:"organisation"`
-	Repository      string    `json:"repository"`
+	config.Scope
 	WorkflowID      int64     `json:"workflow_id"`
 	WorkflowName    string    `json:"workflow_name"`
 	WorkflowJobID   int64     `json:"workflow_job_id"`
@@ -24,7 +24,8 @@ type WorkflowJobMeta struct {
 
 func MetaFromStringMap(m map[string]string) WorkflowJobMeta {
 	result := WorkflowJobMeta{}
-	result.Organisation = m["organisation"]
+	result.IsOrg = m["is_org"] == "true"
+	result.Owner = m["owner"]
 	result.Repository = m["repository"]
 	if workflowID, err := strconv.ParseInt(m["workflow-id"], 10, 64); err != nil {
 		result.WorkflowID = workflowID
@@ -41,7 +42,8 @@ func MetaFromStringMap(m map[string]string) WorkflowJobMeta {
 
 func (m WorkflowJobMeta) StringMap() map[string]string {
 	result := map[string]string{}
-	result["organisation"] = m.Organisation
+	result["is_org"] = strconv.FormatBool(m.IsOrg)
+	result["owner"] = m.Owner
 	result["repository"] = m.Repository
 	result["workflow-id"] = fmt.Sprint(m.WorkflowID)
 	result["workflow-name"] = m.WorkflowName
@@ -54,8 +56,9 @@ func (m WorkflowJobMeta) StringMap() map[string]string {
 
 func WorkflowJobMetaFromEvent(event *github.WorkflowJobEvent) *WorkflowJobMeta {
 	m := WorkflowJobMeta{}
-	m.Organisation = event.GetOrg().GetLogin()
-	m.Repository = event.GetRepo().GetFullName()
+	m.IsOrg = event.GetOrg() != nil
+	m.Owner = event.GetRepo().GetOwner().GetLogin()
+	m.Repository = event.GetRepo().GetName()
 	m.WorkflowID = event.GetWorkflowJob().GetRunID()
 	m.WorkflowName = event.GetWorkflowJob().GetWorkflowName()
 	m.WorkflowJobID = event.GetWorkflowJob().GetID()

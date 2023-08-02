@@ -1,0 +1,43 @@
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release semver
+        required: true
+        type: string
+
+jobs:
+  check:
+    uses: ./.github/workflows/_check.yaml
+
+  build-binary:
+    needs:
+      - check
+
+    uses: ./.github/workflows/_build-binary.yaml
+
+  build-image:
+    needs:
+      - check
+
+    uses: ./.github/workflows/_build-image.yaml
+    secrets:
+      AWS_ECR_IMAGE_PUBLISHER_ROLE_ARN: ${{ secrets.AWS_ECR_IMAGE_PUBLISHER_ROLE_ARN }}
+
+  release:
+    needs:
+      - build-binary
+      - build-image
+
+    runs-on:
+      - self-hosted
+
+    steps:
+      - run: "" # tag current commit
+
+      - uses: actions/create-release@v1
+        with:
+          tag_name: ""
+          release_name: ""
+          body: ""
+          # prerelease:

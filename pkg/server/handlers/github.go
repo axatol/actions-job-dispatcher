@@ -39,14 +39,14 @@ func ReceiveGithubWebhook(w http.ResponseWriter, r *http.Request) {
 
 	case *github.WorkflowJobEvent:
 		log := log.With().
-			Str("job_status", e.GetWorkflowJob().GetStatus()).
-			Str("job_conclusion", e.GetWorkflowJob().GetConclusion()).
-			Int("job_id", int(e.GetWorkflowJob().GetID())).
-			Int("run_id", int(e.GetWorkflowJob().GetRunID())).
-			Int("run_attempt", int(e.GetWorkflowJob().GetRunAttempt())).
-			Str("html_url", e.GetWorkflowJob().GetHTMLURL()).
-			Str("workflow_name", e.GetWorkflowJob().GetWorkflowName()).
-			Str("job_name", e.GetWorkflowJob().GetName()).
+			Str("workflow_job_status", e.GetWorkflowJob().GetStatus()).
+			Str("workflow_job_conclusion", e.GetWorkflowJob().GetConclusion()).
+			Int("workflow_job_id", int(e.GetWorkflowJob().GetID())).
+			Int("workflow_run_id", int(e.GetWorkflowJob().GetRunID())).
+			Int("workflow_job_run_attempt", int(e.GetWorkflowJob().GetRunAttempt())).
+			Str("workflow_job_html_url", e.GetWorkflowJob().GetHTMLURL()).
+			Str("workflow_job_workflow_name", e.GetWorkflowJob().GetWorkflowName()).
+			Str("workflow_job_name", e.GetWorkflowJob().GetName()).
 			Strs("workflow_job_labels", e.GetWorkflowJob().Labels).
 			Logger()
 			//Msg("handling workflow job webhook")

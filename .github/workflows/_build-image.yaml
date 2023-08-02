@@ -22,7 +22,7 @@ jobs:
         with:
           aws-region: us-east-1
           role-to-assume: ${{ secrets.AWS_ECR_IMAGE_PUBLISHER_ROLE_ARN }}
-          role-session-name: ${{ github.triggering_actor }}-${{ github.event.repository.name }}-${{ github.job }}-${{ github.run_id }}
+          role-session-name: ${{ github.triggering_actor }}@${{ github.event.repository.owner }}@${{ github.event.repository.name }}@${{ github.job }}@${{ github.run_id }}
           role-skip-session-tagging: true
           role-duration-seconds: 3600
 
@@ -33,6 +33,8 @@ jobs:
       - uses: axatol/actions/docker-build-push@release
         with:
           image: ${{ env.image }}
+          tag-previous: false
+          use-cache: false
 
       - uses: axatol/actions/prune-ecr-repository@release
         with:

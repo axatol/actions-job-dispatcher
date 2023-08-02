@@ -1,0 +1,11 @@
+on: pull_request
+
+jobs:
+  check:
+    uses: ./.github/workflows/_check.yaml
+
+  build:
+    needs:
+      - check
+
+    uses: ./.github/workflows/_build-binary.yaml

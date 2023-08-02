@@ -37,13 +37,13 @@ func Dispatch(ctx context.Context, runner config.RunnerConfig) error {
 		return nil
 	}
 
-	jobName, err := k8s.CreateJob(ctx, tmpl)
+	createdJob, err := k8s.CreateJob(ctx, tmpl)
 	if err != nil {
 		return fmt.Errorf("failed to dispatch job: %s", err)
 	}
 
 	log.Info().
-		Str("job_name", jobName).
+		Str("job_name", createdJob.Name).
 		Msg("dispatched job")
 
 	return nil

@@ -4,23 +4,18 @@ on:
       - master
 
 jobs:
-  helm-lint:
-    uses: ./.github/workflows/_helm-lint.yaml
-
-  go-vet:
-    uses: ./.github/workflows/_go-vet.yaml
+  check:
+    uses: ./.github/workflows/_check.yaml
 
   build-binary:
     needs:
-      - helm-lint
-      - go-vet
+      - check
 
     uses: ./.github/workflows/_build-binary.yaml
 
   build-image:
     needs:
-      - helm-lint
-      - go-vet
+      - check
 
     uses: ./.github/workflows/_build-image.yaml
     secrets:

@@ -30,7 +30,7 @@ func (fs flagSet) Unset() []*flag.Flag {
 }
 
 // set unset from env or default
-func (fs flagSet) ProcessUnset() {
+func (fs flagSet) LoadUnsetFromEnv() {
 	for _, f := range fs.Unset() {
 		envKey := strings.ToUpper(f.Name)
 		envKey = strings.ReplaceAll(envKey, "-", "_")

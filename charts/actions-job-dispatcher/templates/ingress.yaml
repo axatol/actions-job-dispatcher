@@ -1,9 +1,9 @@
-{{- if .Values.ingress.enabled }}
+{{- if .Values.ingress.create }}
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ .Release.Name }}-ingress
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels: {{- include "actions-job-dispatcher.labels" . | nindent 4 }}
   annotations: {{- toYaml .Values.ingress.annotations | nindent 4 }}
@@ -20,10 +20,8 @@ spec:
             pathType: Prefix
             backend:
               service:
-                {{- with $ }}
-                name: {{ include "actions-job-dispatcher.dispatcher-service" . }}
-                {{- end }}
+                name: {{ include "actions-job-dispatcher.servicename" . }}
                 port:
-                  number: 8000
+                  number: {{ .Values.service.externalPort }}
     {{- end -}}
 {{- end -}}

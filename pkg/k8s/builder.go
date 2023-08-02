@@ -20,7 +20,7 @@ import (
 var (
 	JobSelectorKey   = "app.kubernetes.io/managed-by"
 	JobSelectorValue = "actions-job-dispatcher"
-	JobSelector      = labels.Set(map[string]string{"app.kubernetes.io/managed-by": "actions-job-dispatcher"})
+	JobSelector      = labels.Set(map[string]string{JobSelectorKey: JobSelectorValue})
 )
 
 type Job struct {
@@ -80,12 +80,12 @@ func (j Job) Build() batchv1.Job {
 	j.AddEnv("GITHUB_URL", "https://github.com/")
 	j.AddEnv("RUNNER_WORKDIR", "/runner/_work")
 	j.AddEnv("RUNNER_EPHEMERAL", "true")
-	j.AddEnv("RUNNER_STATUS_UPDATE_HOOK", "true")
+	j.AddEnv("RUNNER_STATUS_UPDATE_HOOK", "false")
 	j.AddEnv("GITHUB_ACTIONS_RUNNER_EXTRA_USER_AGENT", "actions-job-dispatcher/v0.0.1")
 	j.AddEnv("MTU", "1400")
-	j.AddEnv("DOCKER_HOST", "tcp://localhost:2376")
-	j.AddEnv("DOCKER_TLS_VERIFY", "1")
-	j.AddEnv("DOCKER_CERT_PATH", "/certs/client")
+	// j.AddEnv("DOCKER_HOST", "tcp://localhost:2376")
+	// j.AddEnv("DOCKER_TLS_VERIFY", "1")
+	// j.AddEnv("DOCKER_CERT_PATH", "/certs/client")
 
 	if j.Runner.Scope.IsOrg {
 		j.AddEnv("RUNNER_ORG", j.Runner.Scope.String())
@@ -111,19 +111,10 @@ func (j Job) Build() batchv1.Job {
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: util.Ptr(int64((time.Minute * 5).Seconds())),
-					// NodeSelector: map[string]string{},
-					// ImagePullSecrets: []corev1.LocalObjectReference{},
-					// Affinity: &corev1.Affinity{},
-					// Tolerations: []corev1.Toleration{},
-					// SchedulingGates: []corev1.PodSchedulingGate{},
-
-					ServiceAccountName: j.Runner.ServiceAccountName,
-					PreemptionPolicy:   util.Ptr(corev1.PreemptNever),
-					RestartPolicy:      corev1.RestartPolicyNever,
-
-					// InitContainers: []corev1.Container{{
-					// 	Name: "registration",
-					// }},
+					ServiceAccountName:            j.Runner.ServiceAccountName,
+					RestartPolicy:                 corev1.RestartPolicyNever,
+					DNSPolicy:                     corev1.DNSClusterFirst,
+					EnableServiceLinks:            util.Ptr(true),
 
 					Containers: []corev1.Container{{
 						Name:            "runner",
@@ -137,6 +128,10 @@ func (j Job) Build() batchv1.Job {
 							},
 						},
 
+						SecurityContext: &corev1.SecurityContext{
+							Privileged: util.Ptr(true),
+						},
+
 						// LivenessProbe: ,
 						// ReadinessProbe: ,
 						// StartupProbe: ,
@@ -146,8 +141,9 @@ func (j Job) Build() batchv1.Job {
 						EnvFrom: []corev1.EnvFromSource{{
 							ConfigMapRef: &corev1.ConfigMapEnvSource{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "actions-runner-job-cm",
+									Name: "actions-runner-job-config",
 								},
+								Optional: util.Ptr(true),
 							},
 						}},
 

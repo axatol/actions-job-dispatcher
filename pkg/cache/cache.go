@@ -47,12 +47,12 @@ func CacheWorkflowJobEvent(event *github.WorkflowJobEvent) *WorkflowJobMeta {
 
 	status := event.GetWorkflowJob().GetStatus()
 	switch status {
-	case "in_progress":
-		meta.StartedAt = time.Now()
-		Set(*meta)
-
 	case "queued":
 		meta.CreatedAt = time.Now()
+		Set(*meta)
+
+	case "in_progress":
+		meta.StartedAt = time.Now()
 		Set(*meta)
 
 	case "completed":

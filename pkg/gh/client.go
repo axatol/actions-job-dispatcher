@@ -10,7 +10,7 @@ import (
 )
 
 // caches an instance of the client for each authenticated scope
-var clients map[string]Client
+var clients = map[string]Client{}
 
 type Client struct {
 	client *github.Client
@@ -18,10 +18,6 @@ type Client struct {
 }
 
 func GetClient(ctx context.Context, scope config.Scope) (*Client, error) {
-	if clients == nil {
-		clients = map[string]Client{}
-	}
-
 	if client, ok := clients[scope.String()]; ok {
 		return &client, nil
 	}

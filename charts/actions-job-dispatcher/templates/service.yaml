@@ -1,18 +1,14 @@
-{{- define "actions-job-dispatcher.dispatcher-service" -}}
-{{ .Release.Name }}-dispatcher-service
-{{- end -}}
-
-{{- if or .Values.ingress.enabled .Values.service.enabled }}
+{{- if or .Values.ingress.create .Values.service.create }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "actions-job-dispatcher.dispatcher-service" . }}
+  name: {{ .Values.service.name }}
   namespace: {{ .Release.Namespace }}
   labels: {{- include "actions-job-dispatcher.labels" . | nindent 4 }}
 spec:
   selector: {{- include "actions-job-dispatcher.selectors" . | nindent 4 }}
   ports:
-  - port: {{ .Values.service.exposedPort }}
-    targetPort: {{ .Values.service.exposedPort }}
+  - port: {{ .Values.service.externalPort }}
+    targetPort: {{ .Values.service.internalPort }}
 {{- end -}}

@@ -26,6 +26,7 @@ func Version() (*version.Info, error) {
 
 	return client.Version()
 }
+
 func (c *Client) ListJobs(ctx context.Context) ([]batchv1.Job, error) {
 	opts := metav1.ListOptions{LabelSelector: JobSelector.String()}
 	jobs, err := c.client.BatchV1().Jobs(c.namespace).List(ctx, opts)
@@ -45,19 +46,19 @@ func ListJobs(ctx context.Context) ([]batchv1.Job, error) {
 	return client.ListJobs(ctx)
 }
 
-func (c *Client) CreateJob(ctx context.Context, job batchv1.Job) (string, error) {
+func (c *Client) CreateJob(ctx context.Context, job batchv1.Job) (*batchv1.Job, error) {
 	response, err := c.client.BatchV1().Jobs(job.Namespace).Create(ctx, &job, metav1.CreateOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to create job %s/%s: %s", job.Namespace, job.Name, err)
+		return nil, fmt.Errorf("failed to create job %s/%s: %s", job.Namespace, job.Name, err)
 	}
 
-	return response.Name, nil
+	return response, nil
 }
 
-func CreateJob(ctx context.Context, job batchv1.Job) (string, error) {
+func CreateJob(ctx context.Context, job batchv1.Job) (*batchv1.Job, error) {
 	client, err := GetClient()
 	if err != nil {
-		return "", fmt.Errorf("failed to get kubernetes client: %s", err)
+		return nil, fmt.Errorf("failed to get kubernetes client: %s", err)
 	}
 
 	return client.CreateJob(ctx, job)
