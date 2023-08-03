@@ -16,9 +16,8 @@ spec:
       containers:
         - name: dispatcher
           image: {{ .Values.image }}
-          serviceAccount: {{ .Release.Name }}
           args:
-            - -config-file
+            - -config
             - /config/config.yaml
             - -namespace
             - {{ .Release.Namespace }}
@@ -35,7 +34,8 @@ spec:
               subPath: config.yaml
       volumes:
         - name: config
-          configMap: {{ include "actions-job-dispatcher.dispatcherConfigName" . }}
+          configMap: 
+            name: {{ include "actions-job-dispatcher.dispatcherConfigName" . }}
         - name: data
           {{- if .Values.dispatcher.dataVolume }}
           {{- toYaml .Values.dispatcher.dataVolume | nindent 10 }}

@@ -62,7 +62,7 @@ func (j Job) AddEnv(key, value string) {
 }
 
 // note: need to include env vars "RUNNER_TOKEN" with a registration token
-func (j Job) Build() batchv1.Job {
+func (j Job) Render() batchv1.Job {
 	name := fmt.Sprintf("runner-%s-%s", j.Runner.Slug(), j.Hash()[:8])
 
 	// labels

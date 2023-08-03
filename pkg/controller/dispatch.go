@@ -19,18 +19,22 @@ func Dispatch(ctx context.Context, runner config.RunnerConfig) error {
 		return fmt.Errorf("failed to get github client: %s", err)
 	}
 
-	token, err := gh.CreateRegistrationToken(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create runner registration token: %s", err)
-	}
-
 	job := k8s.NewRunnerJob(runner)
 
-	if token.Token != nil {
-		job.AddEnv("RUNNER_TOKEN", *token.Token)
+	if config.DryRun {
+		job.AddEnv("RUNNER_TOKEN", "DRYRUN")
+	} else {
+		token, err := gh.CreateRegistrationToken(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create runner registration token: %s", err)
+		}
+
+		if !config.DryRun && token.Token != nil {
+			job.AddEnv("RUNNER_TOKEN", *token.Token)
+		}
 	}
 
-	tmpl := job.Build()
+	tmpl := job.Render()
 
 	if config.DryRun {
 		log.Debug().Any("template", tmpl).Msg("dry run enabled: not dispatching")

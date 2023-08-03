@@ -11,4 +11,4 @@ RUN make build
 
 FROM gcr.io/distroless/static-debian11
 COPY --from=build /go/app/bin /app
-CMD ["/app/dispatcher"]
+ENTRYPOINT ["/app/dispatcher"]

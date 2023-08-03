@@ -69,7 +69,5 @@ func main() {
 		}
 	}
 
-	if err := ctx.Err(); err != nil {
-		log.Error().Err(err).Msg("context cancelled")
-	}
+	log.Info().Err(ctx.Err()).Msg("dispatcher exiting")
 }

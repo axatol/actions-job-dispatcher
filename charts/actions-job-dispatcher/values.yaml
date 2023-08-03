@@ -11,9 +11,7 @@ github:
     # appPrivateKeyFile:
 
 dispatcher:
-  logFormat: json # or text
-  logLevel: info # or debug
-  syncInterval: 5m
+  env: {}
 
   config:
     create: true

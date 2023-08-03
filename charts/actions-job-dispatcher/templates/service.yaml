@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.service.name }}
+  name: {{ include "actions-job-dispatcher.serviceName" . }}
   namespace: {{ .Release.Namespace }}
   labels: {{- include "actions-job-dispatcher.labels" . | nindent 4 }}
 spec:
