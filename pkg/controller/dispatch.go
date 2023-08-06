@@ -19,7 +19,7 @@ func Dispatch(ctx context.Context, runner config.RunnerConfig) error {
 		return fmt.Errorf("failed to get github client: %s", err)
 	}
 
-	job := k8s.NewRunnerJob(runner)
+	job := k8s.NewRunnerJob()
 
 	if config.DryRun {
 		job.AddEnv("RUNNER_TOKEN", "DRYRUN")
@@ -34,7 +34,7 @@ func Dispatch(ctx context.Context, runner config.RunnerConfig) error {
 		}
 	}
 
-	tmpl := job.Render()
+	tmpl := job.Render(runner)
 
 	if config.DryRun {
 		log.Debug().Any("template", tmpl).Msg("dry run enabled: not dispatching")

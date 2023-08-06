@@ -62,15 +62,17 @@ func (r *Response[T]) Write(w http.ResponseWriter, logger ...zerolog.Logger) {
 		raw = []byte(`{"message":"error handling request","data":null}`)
 	}
 
+	log = log.With().
+		Int("status", r.Status).
+		Str("message", r.Message).
+		Logger()
+
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(r.Status)
 	if _, err := w.Write(raw); err != nil {
-		log.Error().
-			Int("status", r.Status).
-			Str("message", r.Message).
-			Err(err).
-			Msg("failed to write response data")
-		return
+		log.Error().Err(err).Msg("failed to write response data")
+	} else {
+		log.Debug().Send()
 	}
 }
 

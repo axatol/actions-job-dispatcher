@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/axatol/actions-job-dispatcher/pkg/config"
@@ -24,15 +23,14 @@ var (
 )
 
 type Job struct {
-	Runner      config.RunnerConfig
 	Env         EnvMap
 	Annotations PrefixMap
 	Labels      PrefixMap
 }
 
-func (j Job) Hash() string {
+func (j Job) Hash(labels config.Labels) string {
 	hasher := sha1.New()
-	hasher.Write([]byte(j.Runner.Labels.String()))
+	hasher.Write([]byte(labels.String()))
 	hasher.Write([]byte(fmt.Sprint(time.Now().Unix())))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
@@ -62,35 +60,36 @@ func (j Job) AddEnv(key, value string) {
 }
 
 // note: need to include env vars "RUNNER_TOKEN" with a registration token
-func (j Job) Render() batchv1.Job {
-	name := fmt.Sprintf("runner-%s-%s", j.Runner.Slug(), j.Hash()[:8])
+func (j Job) Render(runner config.RunnerConfig) batchv1.Job {
+	name := fmt.Sprintf("runner-%s-%s", runner.Slug(), j.Hash(runner.Labels)[:8])
 
 	// labels
-	j.AddLabel("runner-labels", j.Runner.Labels.String())
-	j.AddLabel("is-org", strconv.FormatBool(j.Runner.Scope.IsOrg))
-	j.AddLabel("scope", j.Runner.Scope.String())
-	j.AddLabel("runner-labels", strings.Join(j.Runner.Labels, ","))
+	j.AddLabel("is-org", strconv.FormatBool(runner.Scope.IsOrg))
+	j.AddLabel("repository-owner", runner.Scope.Owner)
+	j.AddLabel("repository-name", runner.Scope.Repository)
+	j.AddLabel("runner-labels", runner.Labels.String())
+	j.AddLabel("scope", runner.Scope.String())
 
 	// environment variables
-	j.AddEnv("RUNNER_NAME", name)
 	j.AddEnv("DISABLE_RUNNER_UPDATE", "true")
-	j.AddEnv("RUNNER_LABELS", j.Runner.Labels.String())
-	j.AddEnv("DOCKER_ENABLED", "true")
 	j.AddEnv("DOCKERD_IN_RUNNER", "true")
-	j.AddEnv("GITHUB_URL", "https://github.com/")
-	j.AddEnv("RUNNER_WORKDIR", "/runner/_work")
-	j.AddEnv("RUNNER_EPHEMERAL", "true")
-	j.AddEnv("RUNNER_STATUS_UPDATE_HOOK", "false")
-	j.AddEnv("GITHUB_ACTIONS_RUNNER_EXTRA_USER_AGENT", "actions-job-dispatcher/v0.0.1")
-	j.AddEnv("MTU", "1400")
+	// j.AddEnv("DOCKER_CERT_PATH", "/certs/client")
+	j.AddEnv("DOCKER_ENABLED", "true")
 	// j.AddEnv("DOCKER_HOST", "tcp://localhost:2376")
 	// j.AddEnv("DOCKER_TLS_VERIFY", "1")
-	// j.AddEnv("DOCKER_CERT_PATH", "/certs/client")
+	j.AddEnv("GITHUB_ACTIONS_RUNNER_EXTRA_USER_AGENT", "actions-job-dispatcher/v0.0.1")
+	j.AddEnv("GITHUB_URL", "https://github.com/")
+	j.AddEnv("MTU", "1400")
+	j.AddEnv("RUNNER_EPHEMERAL", "true")
+	j.AddEnv("RUNNER_LABELS", runner.Labels.String())
+	j.AddEnv("RUNNER_NAME", name)
+	j.AddEnv("RUNNER_STATUS_UPDATE_HOOK", "false")
+	j.AddEnv("RUNNER_WORKDIR", "/runner/_work")
 
-	if j.Runner.Scope.IsOrg {
-		j.AddEnv("RUNNER_ORG", j.Runner.Scope.String())
+	if runner.Scope.Repository != "" {
+		j.AddEnv("RUNNER_REPO", fmt.Sprintf("%s/%s", runner.Scope.Owner, runner.Scope.Repository))
 	} else {
-		j.AddEnv("RUNNER_REPO", j.Runner.Scope.String())
+		j.AddEnv("RUNNER_ORG", runner.Scope.Owner)
 	}
 
 	return batchv1.Job{
@@ -111,20 +110,20 @@ func (j Job) Render() batchv1.Job {
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: util.Ptr(int64((time.Minute * 5).Seconds())),
-					ServiceAccountName:            j.Runner.ServiceAccountName,
+					ServiceAccountName:            runner.ServiceAccountName,
 					RestartPolicy:                 corev1.RestartPolicyNever,
 					DNSPolicy:                     corev1.DNSClusterFirst,
 					EnableServiceLinks:            util.Ptr(true),
 
 					Containers: []corev1.Container{{
 						Name:            "runner",
-						Image:           j.Runner.Image,
+						Image:           runner.Image,
 						ImagePullPolicy: corev1.PullAlways,
 
 						Resources: corev1.ResourceRequirements{
 							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    resource.MustParse(j.Runner.Resources.CPULimit),
-								corev1.ResourceMemory: resource.MustParse(j.Runner.Resources.MemoryLimit),
+								corev1.ResourceCPU:    resource.MustParse(runner.Resources.CPULimit),
+								corev1.ResourceMemory: resource.MustParse(runner.Resources.MemoryLimit),
 							},
 						},
 
@@ -163,9 +162,8 @@ func (j Job) Render() batchv1.Job {
 	}
 }
 
-func NewRunnerJob(runner config.RunnerConfig) Job {
+func NewRunnerJob() Job {
 	return Job{
-		Runner:      runner,
 		Env:         EnvMap{},
 		Labels:      PrefixMap{},
 		Annotations: PrefixMap{},

@@ -41,7 +41,6 @@ type RunnerConfig struct {
 	// scheduler
 
 	MaxReplicas int `yaml:"max_replicas" json:"max_replicas,omitempty"`
-	// TODO? MinReplicas
 
 	// kubernetes
 

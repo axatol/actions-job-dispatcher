@@ -11,7 +11,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func DescribeHealth(w http.ResponseWriter, r *http.Request) {
+func Ping(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("pong"))
+}
+
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	results := struct {
 		Kubernetes bool            `json:"kubernetes"`
 		GitHub     map[string]bool `json:"github"`
@@ -25,14 +30,12 @@ func DescribeHealth(w http.ResponseWriter, r *http.Request) {
 	if kubeClient, err := k8s.GetClient(); err != nil {
 		log = log.With().AnErr("kubernetes_client_error", err).Logger()
 		results.Kubernetes = false
+	} else if kubeVersion, err := kubeClient.Version(); err != nil {
+		log = log.With().AnErr("kubernetes_version_error", err).Logger()
+		results.Kubernetes = false
 	} else {
-		if kubeVersion, err := kubeClient.Version(); err != nil {
-			log = log.With().AnErr("kubernetes_version_error", err).Logger()
-			results.Kubernetes = false
-		} else {
-			log = log.With().Interface("kubernetes_version", kubeVersion).Logger()
-			results.Kubernetes = true
-		}
+		log = log.With().Interface("kubernetes_version", kubeVersion).Logger()
+		results.Kubernetes = true
 	}
 
 	ghResultDict := zerolog.Dict()

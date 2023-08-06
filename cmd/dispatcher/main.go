@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/axatol/actions-job-dispatcher/pkg/config"
@@ -13,17 +14,36 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	buildTime   string
+	buildCommit string
+)
+
+func printVersion() {
+	log.Info().
+		Str("build_commit", buildCommit).
+		Str("build_time", buildTime).
+		Str("go_arch", runtime.GOARCH).
+		Str("go_os", runtime.GOOS).
+		Str("go_version", runtime.Version()).
+		Send()
+}
+
 func main() {
-	ctx := context.Background()
 	config.LoadConfig()
+
+	if config.PrintVersion {
+		printVersion()
+		return
+	}
 
 	serverVersion, err := k8s.Version()
 	if err != nil {
 		log.Fatal().Err(fmt.Errorf("could not retrieve server details: %s", err)).Send()
 	}
 
-	server := server.NewServer()
-	ctx, cancel := context.WithCancel(ctx)
+	server := server.NewServer(config.ServerPort)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// listen for interrupt
 	go util.ListenForInterrupt(ctx, cancel, func(ctx context.Context) {

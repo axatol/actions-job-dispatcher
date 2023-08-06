@@ -28,6 +28,21 @@ spec:
           ports:
             - containerPort: {{ .Values.service.internalPort }}
           {{- end }}
+          livenessProbe:
+            failureThreshold: 1
+            periodSeconds: 10
+            httpGet:
+              scheme: HTTP
+              path: /ping
+              port: 8000
+          readinessProbe:
+            initialDelaySeconds: 10
+            failureThreshold: 1
+            periodSeconds: 60
+            httpGet:
+              scheme: HTTP
+              path: /health
+              port: 8000
           volumeMounts:
             - name: config
               mountPath: /config/config.yaml
